@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBookingTool, executeTool, getAvailableTimes, sendContactRequestTool, type ToolContext } from '../src/agent/tools.ts';
+import { mockCalendarFactory } from '../src/booking/calendar.ts';
 import { fromLocal } from '../src/booking/clock.ts';
 import { emptySession } from '../src/store/store.ts';
 
 const NOW = fromLocal('2026-10-13', 10 * 60);
 
 function ctx(): ToolContext {
-  return { now: NOW, lang: 'en', state: emptySession() };
+  return { now: NOW, lang: 'en', state: emptySession(), calendar: mockCalendarFactory };
 }
 
 test('without a mechanic the lookup lists every suitable mechanic with an ISO time', () => {

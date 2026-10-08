@@ -96,8 +96,9 @@ export function weekdayOf(date: string): number {
   return w === 0 ? 7 : w;
 }
 
+/** A real calendar date: Date.UTC would roll 2026-02-31 over to March, the round trip catches that. */
 export function isDateString(s: unknown): s is string {
-  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && addDays(s, 0) === s;
 }
 
 /** Parses an ISO timestamp that carries an offset or Z. Null when invalid. */

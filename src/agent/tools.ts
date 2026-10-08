@@ -4,7 +4,7 @@
 // event for the counter view, so a visitor sees what the agent did.
 
 import type Anthropic from '@anthropic-ai/sdk';
-import { MockCalendar, WINDOW_DAYS, bookingWindow, type Calendar } from '../booking/calendar.ts';
+import { WINDOW_DAYS, bookingWindow, type Calendar, type CalendarFactory } from '../booking/calendar.ts';
 import { addDays, isDateString, parseIso, timeLabel, toLocal } from '../booking/clock.ts';
 import { createBooking, createContactRequest } from '../booking/core.ts';
 import { DEFAULT_WORK, workMinutes } from '../booking/duration.ts';
@@ -12,7 +12,7 @@ import { mechanicById, suitableMechanics } from '../booking/mechanics.ts';
 import { cleanText } from '../booking/rules.ts';
 import { ISSUE_TYPES, POWERTRAINS, isIssueType, isPowertrain, type Lang } from '../booking/types.ts';
 import { WORKSHOP } from '../knowledge/workshop.ts';
-import { MAX_EVENTS, type AgentEvent, type SessionState } from '../store/store.ts';
+import type { AgentEvent, SessionState } from '../store/store.ts';
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
 
@@ -101,16 +101,16 @@ export interface ToolContext {
   lang: Lang;
   /** Mutated in place: bookings, requests and events of this conversation. */
   state: SessionState;
-  calendar?: (state: SessionState) => Calendar;
+  calendar: CalendarFactory;
 }
 
+/** A fresh calendar for every call, so a booking made this turn blocks the next lookup. */
 function calendarFor(ctx: ToolContext): Calendar {
-  return ctx.calendar ? ctx.calendar(ctx.state) : new MockCalendar(ctx.now, ctx.state.bookings);
+  return ctx.calendar(ctx.now, ctx.state.bookings);
 }
 
 function record(ctx: ToolContext, kind: AgentEvent['kind'], text: string): void {
   ctx.state.events.push({ at: ctx.now.toISOString(), kind, text });
-  if (ctx.state.events.length > MAX_EVENTS) ctx.state.events.splice(0, ctx.state.events.length - MAX_EVENTS);
 }
 
 function slotLine(startIso: string, lang: Lang): string {

@@ -189,7 +189,7 @@ h3 {
 .msg.user {
   align-self: flex-end;
   background: var(--ink);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .msg.assistant {

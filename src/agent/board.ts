@@ -2,10 +2,10 @@
 // from the same calendar the agent uses. Free times are shown for the
 // smallest booking step; bookings of this conversation appear as blocks.
 
-import { MockCalendar } from '../booking/calendar.ts';
-import { addDays, parseIso, timeLabel, toLocal, weekdayOf } from '../booking/clock.ts';
+import { mockCalendarFactory, type CalendarFactory } from '../booking/calendar.ts';
+import { addDays, parseIso, toLocal, weekdayOf } from '../booking/clock.ts';
 import { WORK_MIN } from '../booking/duration.ts';
-import { MECHANICS, mechanicById } from '../booking/mechanics.ts';
+import { MECHANICS } from '../booking/mechanics.ts';
 import type { Lang } from '../booking/types.ts';
 import type { AgentEvent, SessionState } from '../store/store.ts';
 
@@ -32,12 +32,11 @@ export interface BoardCell {
   booked: BoardBlock[];
 }
 
+/** What the browser renders. Bookings appear as blocks in the cells; names never leave the server. */
 export interface Board {
   days: BoardDay[];
   mechanics: { id: string; name: string; title: string }[];
   cells: BoardCell[];
-  bookings: { ref: string; mechanic: string; when: string; vehicle: string; job: string; name: string }[];
-  requests: { ref: string; vehicle: string; job: string; timing: string }[];
   events: AgentEvent[];
 }
 
@@ -67,8 +66,13 @@ export function workingDays(now: Date, count = BOARD_DAYS): string[] {
   return out;
 }
 
-export function buildBoard(now: Date, state: SessionState, lang: Lang): Board {
-  const calendar = new MockCalendar(now, state.bookings);
+export function buildBoard(
+  now: Date,
+  state: SessionState,
+  lang: Lang,
+  calendarFactory: CalendarFactory = mockCalendarFactory,
+): Board {
+  const calendar = calendarFactory(now, state.bookings);
   const dates = workingDays(now);
   const cells: BoardCell[] = [];
   for (const m of MECHANICS) {
@@ -96,18 +100,6 @@ export function buildBoard(now: Date, state: SessionState, lang: Lang): Board {
     days: dates.map((date) => ({ date, label: dayLabel(date, lang) })),
     mechanics: MECHANICS.map((m) => ({ id: m.id, name: m.name, title: m.title })),
     cells,
-    bookings: state.bookings.map((b) => {
-      const s = parseIso(b.start);
-      return {
-        ref: b.ref,
-        mechanic: mechanicById(b.mechanicId)?.name ?? b.mechanicId,
-        when: s ? timeLabel(s, lang) : b.start,
-        vehicle: b.vehicle,
-        job: `${b.issueType}, ${b.workMin} min`,
-        name: b.name,
-      };
-    }),
-    requests: state.requests.map((r) => ({ ref: r.ref, vehicle: r.vehicle, job: r.issueType, timing: r.timing })),
     events: state.events,
   };
 }

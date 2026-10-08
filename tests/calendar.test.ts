@@ -65,7 +65,11 @@ test('a booking removes its slot and anything that overlaps it', () => {
     const m = toLocal(parseIso(s.start)!).minutes;
     assert.ok(m + 45 <= startMin || m >= endMin, `slot ${s.start} overlaps the booking`);
   }
-  assert.equal(busy.isFree('sami', first.start, 120) || true, true, 'other mechanics are unaffected');
+  assert.deepEqual(
+    busy.freeSlots('sami', 120, '2026-10-14', '2026-10-14'),
+    empty.freeSlots('sami', 120, '2026-10-14', '2026-10-14'),
+    'other mechanics are unaffected',
+  );
 });
 
 test('isFree compares instants, not strings', () => {

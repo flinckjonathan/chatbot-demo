@@ -30,14 +30,13 @@ export const DEFAULT_WORK: Readonly<Record<IssueType, number>> = {
 
 /**
  * Work minutes for an issue. A suggestion (from the model) is accepted when
- * it is in WORK_MIN ... max(WORK_MAX, default + 50 %), rounded to the step.
+ * it is in WORK_MIN ... WORK_MAX, rounded to the step.
  */
 export function workMinutes(issue: IssueType, suggested = 0): number {
   const fallback = DEFAULT_WORK[issue];
   if (!Number.isFinite(suggested) || suggested <= 0) return fallback;
-  const ceiling = Math.max(WORK_MAX, Math.round(fallback * 1.5));
   const stepped = Math.round(suggested / WORK_STEP) * WORK_STEP;
-  return Math.max(WORK_MIN, Math.min(ceiling, stepped));
+  return Math.max(WORK_MIN, Math.min(WORK_MAX, stepped));
 }
 
 export function inBreak(minute: number): boolean {

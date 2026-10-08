@@ -31,7 +31,8 @@ export interface BookingInput {
 /** Jobs the shop does not take through the agent, caught by their description. */
 export const NOT_BOOKABLE: ReadonlyArray<{ keyword: RegExp; message: string }> = [
   {
-    keyword: /\b(tyres?|tires?|rengas|renkaat|renkaiden|däck)\b/i,
+    // Stems, not whole words: Finnish and Swedish compound them ("talvirenkaat", "däckbyte").
+    keyword: /(tyre|tire|renka|rengas|däck)/i,
     message: 'Tyre changes are booked by phone only, not through the agent.',
   },
 ];
@@ -123,7 +124,11 @@ export function createBooking(input: BookingInput, calendar: Calendar, now: Date
     };
   }
   const workMin = workMinutes(issue, typeof input.duration_min === 'number' ? input.duration_min : 0);
-  if (!calendar.isFree(mechanicId, startIso, workMin)) {
+  // Instants are compared, not strings: the model may hand the time back in UTC.
+  const slot = calendar
+    .freeSlots(mechanicId, workMin, startLocal.date, startLocal.date)
+    .find((s) => parseIso(s.start)?.getTime() === start.getTime());
+  if (!slot) {
     return {
       state: 'unavailable',
       reason: 'gone',
@@ -131,14 +136,11 @@ export function createBooking(input: BookingInput, calendar: Calendar, now: Date
     };
   }
 
-  const slot = calendar
-    .freeSlots(mechanicId, workMin, startLocal.date, startLocal.date)
-    .find((s) => parseIso(s.start)?.getTime() === start.getTime());
   const booking: Booking = {
     ref: makeRef('B'),
     mechanicId,
-    start: slot?.start ?? startIso,
-    end: slot?.end ?? startIso,
+    start: slot.start,
+    end: slot.end,
     workMin,
     issueType: issue,
     name,

@@ -9,9 +9,17 @@ import type { Booking, Slot } from './types.ts';
 export interface Calendar {
   /** Bookable start times for one mechanic between two dates (inclusive). */
   freeSlots(mechanicId: string, workMin: number, fromDate: string, toDate: string): Slot[];
-  /** Whether a start time the model hands back is still bookable. */
-  isFree(mechanicId: string, startIso: string, workMin: number): boolean;
 }
+
+/**
+ * How the agent and the board get a calendar for "now" and the bookings
+ * already made. Production would return a live adapter here; the demo
+ * returns the mock. Both sides of the counter use the same factory, so the
+ * board can never show a different calendar than the one the agent books in.
+ */
+export type CalendarFactory = (now: Date, bookings: readonly Booking[]) => Calendar;
+
+export const mockCalendarFactory: CalendarFactory = (now, bookings) => new MockCalendar(now, bookings);
 
 /** Customers cannot book inside the next hour. */
 export const LEAD_MINUTES = 60;

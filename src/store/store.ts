@@ -11,14 +11,32 @@ export interface AgentEvent {
   text: string;
 }
 
+/** One completed turn of the conversation, text only. */
+export interface HistoryItem {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export interface SessionState {
   bookings: Booking[];
   requests: ContactRequest[];
   events: AgentEvent[];
+  /** The last turns, appended in user/assistant pairs by the agent. */
+  transcript: HistoryItem[];
 }
 
 export function emptySession(): SessionState {
-  return { bookings: [], requests: [], events: [] };
+  return { bookings: [], requests: [], events: [], transcript: [] };
+}
+
+/**
+ * Keeps the state bounded: the log keeps its newest MAX_EVENTS lines and
+ * the transcript its newest MAX_TRANSCRIPT turns. Called once per turn by
+ * the agent, after it has read what the turn added.
+ */
+export function trimSession(state: SessionState): void {
+  if (state.events.length > MAX_EVENTS) state.events.splice(0, state.events.length - MAX_EVENTS);
+  if (state.transcript.length > MAX_TRANSCRIPT) state.transcript.splice(0, state.transcript.length - MAX_TRANSCRIPT);
 }
 
 export interface SessionStore {
@@ -33,6 +51,8 @@ export interface Counter {
 
 export const SESSION_TTL_SEC = 24 * 60 * 60;
 export const MAX_EVENTS = 40;
+export const MAX_TRANSCRIPT = 12;
+export const MAX_TRANSCRIPT_CHARS = 1500;
 
 export class MemoryStore implements SessionStore, Counter {
   private sessions = new Map<string, SessionState>();
@@ -89,6 +109,7 @@ export class KvStore implements SessionStore, Counter {
         bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
         requests: Array.isArray(parsed.requests) ? parsed.requests : [],
         events: Array.isArray(parsed.events) ? parsed.events : [],
+        transcript: Array.isArray(parsed.transcript) ? parsed.transcript : [],
       };
     } catch {
       return emptySession();

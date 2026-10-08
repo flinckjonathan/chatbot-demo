@@ -3,7 +3,6 @@
 
 const SESSION_KEY = 'advisor-session';
 const LANG_KEY = 'advisor-lang';
-const MAX_HISTORY = 12;
 
 const GREETING = {
   en: "Hi! I'm the customer advisor at Korjaamo Lumme. Ask about our services, describe a problem with your car, or book a time with one of our mechanics.",
@@ -24,7 +23,6 @@ const els = {
 };
 
 const session = getSession();
-const history = [];
 let busy = false;
 
 function getSession() {
@@ -65,8 +63,10 @@ function errorText(status, data) {
   if (status === 429 && data && data.scope === 'global') return 'The demo has reached its daily limit. Come back tomorrow.';
   if (status === 429) return 'Too many messages right now. Wait a few minutes and try again.';
   if (status === 503) return 'The advisor is switched off: no API key is configured on the server.';
-  if (status === 502) return 'The advisor is not available right now. In a real shop this is where the phone number would be: 010 234 5678.';
+  if (status === 502 && data && typeof data.text === 'string') return data.text;
+  if (status === 502) return 'The advisor is not available right now.';
   if (status === 400) return 'The message could not be sent.';
+  if (status === 500) return 'Something went wrong on the server. The error has been logged.';
   return 'No connection to the server.';
 }
 
@@ -92,14 +92,13 @@ async function onSubmit(event) {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ session, lang: els.lang.value, message: text, history: history.slice(-MAX_HISTORY) }),
+      body: JSON.stringify({ session, lang: els.lang.value, message: text }),
     });
     const data = await res.json().catch(() => ({}));
     pending.remove();
     if (res.ok && typeof data.reply === 'string') {
-      history.push({ role: 'user', text }, { role: 'assistant', text: data.reply });
       addMessage('assistant', data.reply);
-      renderBoard(data.board, data.events || []);
+      renderBoard(data.board, data.ref);
     } else {
       addMessage('system', errorText(res.status, data));
     }
@@ -122,14 +121,9 @@ function clockLabel(iso) {
   }
 }
 
-function renderBoard(board, newEvents) {
+/** Draws the week board and the log. `landedRef` is the booking this turn created, if any. */
+function renderBoard(board, landedRef) {
   if (!board) return;
-  const landed = new Set();
-  for (const e of newEvents) {
-    const ref = e.kind === 'booking' && /Reference (B-[A-Z0-9]+)/.exec(e.text);
-    if (ref) landed.add(ref[1]);
-  }
-
   const table = els.board;
   table.replaceChildren();
   const thead = el('thead');
@@ -154,7 +148,7 @@ function renderBoard(board, newEvents) {
       const td = el('td');
       if (cell) {
         for (const b of cell.booked) {
-          const block = el('span', landed.has(b.ref) ? 'block landed' : 'block', `${b.start}–${b.end} `);
+          const block = el('span', b.ref === landedRef ? 'block landed' : 'block', `${b.start}–${b.end} `);
           block.appendChild(el('span', 'ref', b.ref));
           block.appendChild(el('small', '', b.label));
           td.appendChild(block);
@@ -194,7 +188,7 @@ async function loadBoard() {
     if (!res.ok) return;
     const data = await res.json();
     els.fakeNote.hidden = !data.fake;
-    renderBoard(data.board, []);
+    renderBoard(data.board, null);
   } catch {
     // The board is a view, the chat still works without it.
   }

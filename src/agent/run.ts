@@ -5,13 +5,14 @@
 // them what happened.
 
 import Anthropic from '@anthropic-ai/sdk';
+import { mockCalendarFactory, type CalendarFactory } from '../booking/calendar.ts';
+import { parseIso, timeLabel } from '../booking/clock.ts';
 import type { Lang } from '../booking/types.ts';
 import type { ChatRequest } from '../guard/input.ts';
-import type { AgentEvent, SessionState } from '../store/store.ts';
+import { MAX_TRANSCRIPT_CHARS, trimSession, type AgentEvent, type SessionState } from '../store/store.ts';
 import { systemBlocks } from './prompt.ts';
-import { bookingFallbackText, refusalText, requestFallbackText } from './texts.ts';
+import { bookingFallbackText, cutShortText, refusalText, requestFallbackText } from './texts.ts';
 import { TOOLS, executeTool, type ToolContext } from './tools.ts';
-import { parseIso, timeLabel } from '../booking/clock.ts';
 
 type Params = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
 type Message = Anthropic.Beta.Messages.BetaMessage;
@@ -26,10 +27,17 @@ export interface ModelClient {
 export const MODEL = 'claude-opus-5-5';
 export const MAX_TOOL_ROUNDS = 3;
 
+/**
+ * The model could not be used. `config` means the request itself is wrong
+ * (bad key, rejected parameter) and retrying will not help; `transient`
+ * means the service is unreachable or overloaded right now.
+ */
 export class ApiUnavailable extends Error {
-  constructor(cause: unknown) {
-    super('model API unavailable');
+  readonly kind: 'config' | 'transient';
+  constructor(cause: unknown, kind: 'config' | 'transient') {
+    super(`model API unavailable (${kind})`);
     this.cause = cause;
+    this.kind = kind;
   }
 }
 
@@ -51,7 +59,7 @@ export interface TurnResult {
 
 export interface TurnOptions {
   model?: string;
-  calendar?: ToolContext['calendar'];
+  calendar?: CalendarFactory;
 }
 
 function buildMessages(request: ChatRequest): MessageParam[] {
@@ -68,11 +76,30 @@ function textOf(message: Message): string {
     .join('\n\n');
 }
 
-function createdRef(state: SessionState, before: { bookings: number; requests: number }): string | undefined {
+function classify(err: unknown): ApiUnavailable | null {
+  if (
+    err instanceof Anthropic.AuthenticationError ||
+    err instanceof Anthropic.PermissionDeniedError ||
+    err instanceof Anthropic.BadRequestError ||
+    err instanceof Anthropic.NotFoundError
+  ) {
+    return new ApiUnavailable(err, 'config');
+  }
+  if (err instanceof Anthropic.APIError) return new ApiUnavailable(err, 'transient');
+  return null;
+}
+
+interface Progress {
+  bookings: number;
+  requests: number;
+  events: number;
+}
+
+function createdRef(state: SessionState, before: Progress): string | undefined {
   return state.bookings[before.bookings]?.ref ?? state.requests[before.requests]?.ref;
 }
 
-function fallbackAfterProgress(state: SessionState, before: { bookings: number; requests: number }, lang: Lang): string | null {
+function fallbackAfterProgress(state: SessionState, before: Progress, lang: Lang): string | null {
   const booking = state.bookings[before.bookings];
   if (booking) {
     const when = parseIso(booking.start);
@@ -85,15 +112,15 @@ function fallbackAfterProgress(state: SessionState, before: { bookings: number; 
 
 export async function runTurn(input: TurnInput, client: ModelClient, options: TurnOptions = {}): Promise<TurnResult> {
   const { request, state, now } = input;
-  const before = { bookings: state.bookings.length, requests: state.requests.length, events: state.events.length };
-  const ctx: ToolContext = { now, lang: request.lang, state, calendar: options.calendar };
+  const before: Progress = { bookings: state.bookings.length, requests: state.requests.length, events: state.events.length };
+  const ctx: ToolContext = { now, lang: request.lang, state, calendar: options.calendar ?? mockCalendarFactory };
   const messages = buildMessages(request);
 
   const params: Params = {
     model: options.model ?? MODEL,
     // Adaptive thinking shares this budget with the answer; the model only
     // bills what it uses, so a roomy ceiling costs nothing extra.
-    max_tokens: 8192,
+    max_tokens: 16000,
     output_config: { effort: 'medium' },
     // A safety classifier can decline a request (stop_reason "refusal").
     // Server-side fallback re-runs it on another model so an ordinary car
@@ -105,27 +132,28 @@ export async function runTurn(input: TurnInput, client: ModelClient, options: Tu
     messages,
   };
 
-  const call = async (): Promise<Message> => {
+  const call = async (p: Params): Promise<Message> => {
     try {
-      return await client.create(params);
+      return await client.create(p);
     } catch (err) {
-      if (err instanceof Anthropic.APIError || err instanceof Anthropic.APIConnectionError) throw new ApiUnavailable(err);
-      throw err;
+      throw classify(err) ?? err;
     }
   };
 
-  const finish = (reply: string, rounds: number): TurnResult => ({
-    reply,
-    ref: createdRef(state, before),
-    events: state.events.slice(before.events),
-    state,
-    rounds,
-  });
+  const finish = (reply: string, rounds: number): TurnResult => {
+    const events = state.events.slice(before.events);
+    state.transcript.push(
+      { role: 'user', text: request.message.slice(0, MAX_TRANSCRIPT_CHARS) },
+      { role: 'assistant', text: reply.slice(0, MAX_TRANSCRIPT_CHARS) },
+    );
+    trimSession(state);
+    return { reply, ref: createdRef(state, before), events, state, rounds };
+  };
 
   let rounds = 0;
   let message: Message;
   try {
-    message = await call();
+    message = await call(params);
     while (message.stop_reason === 'tool_use' && rounds < MAX_TOOL_ROUNDS) {
       rounds++;
       const toolUses = message.content.filter(
@@ -134,25 +162,34 @@ export async function runTurn(input: TurnInput, client: ModelClient, options: Tu
       if (toolUses.length === 0) break;
       // The assistant turn goes back exactly as received, thinking blocks included.
       messages.push({ role: 'assistant', content: message.content });
-      const results: ToolResult[] = toolUses.map((t) => ({
-        type: 'tool_result',
-        tool_use_id: t.id,
-        content: executeTool(t.name, t.input, ctx),
-      }));
+      const results: ToolResult[] = toolUses.map((t) => {
+        const content = executeTool(t.name, t.input, ctx);
+        return { type: 'tool_result', tool_use_id: t.id, content, is_error: content.startsWith('ERROR') };
+      });
       messages.push({ role: 'user', content: results });
-      message = await call();
+      message = await call(params);
+    }
+    if (message.stop_reason === 'tool_use') {
+      // Round cap reached with the model still wanting tools: ask it to
+      // close the turn in words instead of reporting an outage.
+      message = await call({ ...params, tool_choice: { type: 'none' } });
     }
   } catch (err) {
-    // A booking may already exist even though the closing call failed.
+    // A booking may already exist even though a later call failed.
     const fallback = fallbackAfterProgress(state, before, request.lang);
-    if (fallback) return finish(fallback, rounds);
+    if (fallback) {
+      console.error('model call failed after progress, answering with the fixed text', err);
+      return finish(fallback, rounds);
+    }
     throw err;
   }
 
   if (message.stop_reason === 'refusal') return finish(refusalText(request.lang), rounds);
   const text = textOf(message);
-  if (text) return finish(text, rounds);
+  if (text) {
+    return finish(message.stop_reason === 'max_tokens' ? `${text}\n\n${cutShortText(request.lang)}` : text, rounds);
+  }
   const fallback = fallbackAfterProgress(state, before, request.lang);
   if (fallback) return finish(fallback, rounds);
-  throw new ApiUnavailable(new Error(`empty reply, stop_reason ${message.stop_reason ?? 'none'}`));
+  throw new ApiUnavailable(new Error(`empty reply, stop_reason ${message.stop_reason ?? 'none'}`), 'transient');
 }

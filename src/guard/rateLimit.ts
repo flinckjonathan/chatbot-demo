@@ -24,13 +24,15 @@ export async function checkRate(
   limits: RateLimits = DEFAULT_LIMITS,
 ): Promise<RateVerdict> {
   const t = Math.floor(now.getTime() / 1000);
-  const globalBucket = Math.floor(t / limits.global.windowSec);
-  const globalCount = await counter.incr(`global:${globalBucket}`, limits.global.windowSec);
-  if (globalCount > limits.global.max) return { ok: false, scope: 'global' };
-
+  // Visitor first: a request the visitor limit rejects must not eat the
+  // daily budget, or one client could take the whole demo offline.
   const visitorBucket = Math.floor(t / limits.perVisitor.windowSec);
   const visitorCount = await counter.incr(`visitor:${visitor}:${visitorBucket}`, limits.perVisitor.windowSec);
   if (visitorCount > limits.perVisitor.max) return { ok: false, scope: 'visitor' };
+
+  const globalBucket = Math.floor(t / limits.global.windowSec);
+  const globalCount = await counter.incr(`global:${globalBucket}`, limits.global.windowSec);
+  if (globalCount > limits.global.max) return { ok: false, scope: 'global' };
 
   return { ok: true };
 }

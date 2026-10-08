@@ -12,7 +12,7 @@
     "deploy": "wrangler pages deploy public --project-name chatbot-demo"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "latest"
+    "@anthropic-ai/sdk": "^0.132.1"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.0.0",

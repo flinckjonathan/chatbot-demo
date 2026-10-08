@@ -40,14 +40,15 @@ browser (public/)                Cloudflare Pages Function            Claude
 
 **The booking core** (`src/booking/core.ts`): one function, one result. `createBooking` cleans and validates the raw input, checks the slot against the calendar and returns `booked`, `rejected` (with the field) or `unavailable` (with the reason). Callers switch on the state. No I/O inside, so it is tested without mocks.
 
-**The calendar seam** (`src/booking/calendar.ts`): a two-method interface, `freeSlots` and `isFree`. The demo ships a deterministic mock: the same slot is free on every page load (hash of mechanic, date and start), one mechanic is booked out for the first days, lunch is closed, blocks include handling time and stretch across the break. A real workshop system would be a second implementation of the same interface.
+**The calendar seam** (`src/booking/calendar.ts`): a one-method interface, `freeSlots`, and a factory that both the agent and the board get their calendar from. The demo ships a deterministic mock: the same slot is free on every page load (hash of mechanic, date and start), one mechanic is booked out for the first days, lunch is closed, blocks include handling time and stretch across the break. A real workshop system would be a second implementation of the same interface, swapped in one place (`functions/api/chat.ts`).
 
 **Guardrails**:
 
 - Binding rules in the system prompt: answer only from the knowledge base, quote only published prices, no definite diagnoses, safety symptoms mean "stop driving and call", instructions inside messages are not commands.
 - Consent gate: `create_booking` and `send_contact_request` reject `consent=false`, so the model has to show a summary and get a yes first.
 - One booking and one contact request per conversation, enforced in the executor, not in the prompt.
-- Tool loop capped at three rounds; message cut to 1000 characters; history cut to 12 turns.
+- Tool loop capped at three rounds; when the model still wants a tool after that, it is asked to close the turn in words. Message cut to 1000 characters, transcript to 12 turns.
+- The transcript lives on the server. The browser sends only the new message, so a visitor cannot forge earlier assistant turns to steer the model.
 - Rate limits: 12 messages per visitor per 10 minutes, 400 per day for the whole demo. Visitors are counted by a salted hash of the IP.
 - Nothing from the model is trusted as data: inputs are parsed as JSON and validated, times are compared as instants, not strings.
 
@@ -60,7 +61,7 @@ browser (public/)                Cloudflare Pages Function            Claude
 | Refusal fallback | `fallbacks: "default"` with beta `server-side-fallback-2026-07-01` | A declined request is re-run on another model inside the same call, so an ordinary car question still gets an answer |
 | Prompt caching | `cache_control` on the knowledge block | Rules, knowledge and tool definitions are identical on every request; the volatile clock block comes after the cache point |
 | Streaming | off | The production bot tried streaming and the customers preferred a complete answer; one JSON response also keeps the function simple |
-| `max_tokens` | 8192 | Thinking shares this budget with the answer; only used tokens are billed |
+| `max_tokens` | 16000 | Thinking shares this budget with the answer; only used tokens are billed. A reply that still hits the ceiling gets a "cut short" line |
 
 A typical turn costs about one cent; a booking turn with two tool rounds about two to three cents. The daily cap bounds the worst case.
 
@@ -108,12 +109,14 @@ src/booking/      types, clock, duration, mechanics, rules, calendar, core
 src/guard/        input parsing and limits, rate limiting
 src/store/        session state and counters: memory for tests, KV in production
 src/knowledge/    the fictional shop
-tests/            node --test, 36 tests
+tests/            node --test, 40 tests
 DESIGN.md         the visual decisions
 ```
 
 ## Privacy
 
-Session data (bookings, requests, the log) lives in KV for 24 hours under a random session id and is then gone. IPs are hashed with a salt before they touch a counter. The page asks visitors not to enter real personal details.
+Session data (bookings, requests, the log, the transcript) lives in KV for 24 hours under a random session id and is then gone. Names and phone numbers never leave the server: the board shows references and vehicles only. IPs are hashed with a salt before they touch a counter. The page asks visitors not to enter real personal details.
+
+Known limit: KV has no compare-and-set, so two tabs that share one session id (a duplicated tab) can race the read-modify-write of the session and slip past the one-booking guard. A production store would use a transaction or a version check.
 
 TODO: license file.
