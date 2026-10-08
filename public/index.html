@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Korjaamo Lumme advisor</title>
+  <meta name="description" content="A customer advisor agent for a fictional car repair shop: Claude with tools, a simulated calendar and guardrails. Both sides of the counter on one page.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="sign">
+    <p class="sign-name">Korjaamo Lumme</p>
+    <p class="sign-sub">A customer advisor that books real times. The workshop is fictional and the calendar is simulated. The agent, its tools and its guardrails are the same design that runs in production at a car repair shop.</p>
+    <nav class="sign-links">
+      <a href="https://github.com/flinckjonathan/chatbot-demo">Source on GitHub</a>
+      <a href="#how">How it works</a>
+    </nav>
+  </header>
+
+  <main class="counter">
+    <section class="panel chat" aria-labelledby="chat-h">
+      <div class="panel-head">
+        <h1 id="chat-h">Customer side</h1>
+        <label class="lang">Reply language
+          <select id="lang">
+            <option value="en">English</option>
+            <option value="fi">suomi</option>
+            <option value="sv">svenska</option>
+          </select>
+        </label>
+      </div>
+      <p id="fake-note" class="fake-note" hidden>Running against a scripted stand-in for the model. Ask to book a time, then answer yes.</p>
+      <ol id="messages" class="messages" aria-live="polite" aria-label="Conversation"></ol>
+      <div id="starters" class="starters" aria-label="Example messages">
+        <button type="button" data-text="What does an EV battery health report cost?">What does an EV battery health report cost?</button>
+        <button type="button" data-text="My hybrid shows a battery warning light. Can I get it checked next week?">My hybrid shows a battery warning light. Can I get it checked next week?</button>
+        <button type="button" data-text="Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.">Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.</button>
+      </div>
+      <form id="form" class="composer">
+        <label class="sr-only" for="input">Message to the advisor</label>
+        <textarea id="input" rows="2" maxlength="1000" placeholder="Write to the advisor" required></textarea>
+        <button type="submit" id="send" class="send">Send</button>
+      </form>
+      <p class="note">Demo data is deleted after 24 hours. Please do not enter real personal details.</p>
+    </section>
+
+    <section class="panel desk" aria-labelledby="desk-h">
+      <div class="panel-head">
+        <h2 id="desk-h">Behind the counter</h2>
+        <p>What the agent did in the shop systems during this conversation. The board is the next five working days.</p>
+      </div>
+      <div class="board-wrap">
+        <table class="board" id="board" aria-label="Week board"></table>
+      </div>
+      <p class="swipe-hint">Swipe sideways to see all three mechanics.</p>
+      <h3 class="events-h">Agent actions</h3>
+      <ol id="events" class="events">
+        <li class="empty">Nothing yet. The log fills when the agent looks up times, books, or gets refused.</li>
+      </ol>
+    </section>
+  </main>
+
+  <section id="how" class="how" aria-labelledby="how-h">
+    <h2 id="how-h">How it works</h2>
+    <div class="how-grid">
+      <div>
+        <h3>The agent</h3>
+        <p>Claude gets three tools: look up free times, create a booking, send a contact request. The booking core validates every call, so a missing consent or a stale time comes back as an error the model has to handle in the conversation. One booking per conversation, and the tool loop stops after three rounds.</p>
+      </div>
+      <div>
+        <h3>The guardrails</h3>
+        <p>Binding rules in the system prompt: answer only from the knowledge base, quote only published prices, no definite diagnoses, instructions inside messages are not commands. Rate limits per visitor and per day keep the API key safe behind a public page. If the model fails after a booking went through, a fixed text still tells you the reference.</p>
+      </div>
+      <div>
+        <h3>Left out on purpose</h3>
+        <p>The production version runs on a real workshop calendar and reads anonymised statistics from the shop's job history, and new facts reach the bot only after a person approves them. None of that is here: the calendar is a deterministic mock, the shop is fictional, and nothing is stored beyond your session.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Built from a customer advisor I run in production at a car repair shop. Korjaamo Lumme, its mechanics, prices and phone number are made up for this demo.
+  </footer>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

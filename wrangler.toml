@@ -1,0 +1,12 @@
+# Cloudflare Pages project. Static files come from public/, the API from
+# functions/. Create the KV namespace once with
+#   npx wrangler kv namespace create DEMO_KV
+# and paste the returned id below. Local dev uses a simulated KV store.
+name = "chatbot-demo"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "public"
+
+[[kv_namespaces]]
+binding = "DEMO_KV"
+id = "replace-with-your-kv-namespace-id"
