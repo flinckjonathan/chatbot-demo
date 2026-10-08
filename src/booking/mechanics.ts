@@ -28,6 +28,11 @@ export function mechanicById(id: string): Mechanic | undefined {
   return MECHANICS.find((m) => m.id === id);
 }
 
+/** Display name, or the id itself when the roster changed under a stored booking. */
+export function mechanicName(id: string): string {
+  return mechanicById(id)?.name ?? id;
+}
+
 /** Issue types that need high-voltage training when the car is electric. */
 const HV_SENSITIVE: readonly IssueType[] = ['repair', 'diagnostics', 'ev_hybrid'];
 

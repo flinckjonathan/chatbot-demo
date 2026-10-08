@@ -2,98 +2,95 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBookingTool, executeTool, getAvailableTimes, sendContactRequestTool, type ToolContext } from '../src/agent/tools.ts';
 import { mockCalendarFactory } from '../src/booking/calendar.ts';
-import { fromLocal } from '../src/booking/clock.ts';
 import { emptySession } from '../src/store/store.ts';
-
-const NOW = fromLocal('2026-10-13', 10 * 60);
+import { NOW, bookingInput } from './fixtures.ts';
 
 function ctx(): ToolContext {
-  return { now: NOW, lang: 'en', state: emptySession(), calendar: mockCalendarFactory };
+  return { now: NOW, lang: 'en', state: emptySession(), calendar: mockCalendarFactory, turn: { events: [] } };
 }
+
+const LOOKUP_ALL = { issue_type: 'service', powertrain: '', mechanic_id: '', duration_min: 0, from_date: '' };
 
 test('without a mechanic the lookup lists every suitable mechanic with an ISO time', () => {
   const c = ctx();
-  const out = getAvailableTimes({ issue_type: 'service', powertrain: '', mechanic_id: '', duration_min: 0, from_date: '' }, c);
-  assert.match(out, /Work time 120 min/);
-  assert.match(out, /petri \(Petri Lehto/);
-  assert.match(out, /sami \(Sami Kuusela/);
-  assert.doesNotMatch(out, /aino/);
-  assert.match(out, /\[2026-10-\d{2}T\d{2}:\d{2}:00\+03:00\]/);
-  assert.equal(c.state.events.length, 1);
-  assert.equal(c.state.events[0]?.kind, 'lookup');
+  const out = getAvailableTimes(LOOKUP_ALL, c);
+  assert.equal(out.refused, false);
+  assert.match(out.text, /Work time 120 min/);
+  assert.match(out.text, /petri \(Petri Lehto/);
+  assert.match(out.text, /sami \(Sami Kuusela/);
+  assert.doesNotMatch(out.text, /aino/);
+  assert.match(out.text, /\[2026-10-\d{2}T\d{2}:\d{2}:00\+03:00\]/);
+  assert.deepEqual(c.turn.events.map((e) => e.kind), ['lookup']);
 });
 
-test('a mechanic who does not do the job is an error for the model and a blocked event', () => {
+test('a mechanic who does not do the job is a refusal for the model and a blocked event', () => {
   const c = ctx();
-  const out = getAvailableTimes({ issue_type: 'ac', powertrain: '', mechanic_id: 'aino', duration_min: 0, from_date: '' }, c);
-  assert.match(out, /^ERROR/);
-  assert.equal(c.state.events[0]?.kind, 'blocked');
+  const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'ac', mechanic_id: 'aino' }, c);
+  assert.equal(out.refused, true);
+  assert.match(out.text, /^ERROR: Mechanic "aino" does not do this job/);
+  assert.equal(c.turn.events[0]?.kind, 'blocked');
+});
+
+test('tyre jobs are refused with the phone-only wording', () => {
+  const c = ctx();
+  const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'tyres' }, c);
+  assert.equal(out.refused, true);
+  assert.match(out.text, /by phone only/);
 });
 
 test('an electric repair only offers the high-voltage mechanic', () => {
-  const out = getAvailableTimes({ issue_type: 'repair', powertrain: 'ev', mechanic_id: '', duration_min: 0, from_date: '' }, ctx());
-  assert.match(out, /aino/);
-  assert.doesNotMatch(out, /petri/);
+  const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'repair', powertrain: 'ev' }, ctx());
+  assert.match(out.text, /aino/);
+  assert.doesNotMatch(out.text, /petri/);
+});
+
+test('a from_date inside the window moves the lookup, one outside is ignored', () => {
+  const c = ctx();
+  const later = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'petri', from_date: '2026-10-20' }, c);
+  assert.match(later.text, /\[2026-10-2\d/);
+  assert.doesNotMatch(later.text, /\[2026-10-1\d/);
+  const ignored = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'petri', from_date: '2027-01-01' }, c);
+  assert.match(ignored.text, /\[2026-10-1\d/);
 });
 
 test('only one booking per conversation', () => {
   const c = ctx();
-  const times = getAvailableTimes({ issue_type: 'service', powertrain: '', mechanic_id: 'petri', duration_min: 0, from_date: '' }, c);
-  const start = times.match(/\[([^\]]+)\]/)![1]!;
-  const input = {
-    name: 'Test Person',
-    phone: '0401234567',
-    email: '',
-    rego: 'ABC-123',
-    make_model: '',
-    powertrain: '',
-    issue_type: 'service',
-    description: 'Annual service, please',
-    mechanic_id: 'petri',
-    start,
-    duration_min: 0,
-    consent: true,
-  };
+  const times = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'petri' }, c);
+  const start = times.text.match(/\[([^\]]+)\]/)![1]!;
+  const input = bookingInput({ start });
   const first = createBookingTool(input, c);
-  assert.match(first, /^Booking confirmed\. Reference B-/);
+  assert.equal(first.refused, false);
+  assert.match(first.text, /^Booking confirmed\. Reference B-/);
   assert.equal(c.state.bookings.length, 1);
+  assert.equal(c.turn.booking?.ref, c.state.bookings[0]?.ref);
   const second = createBookingTool(input, c);
-  assert.match(second, /^ERROR: a booking already exists/);
+  assert.equal(second.refused, true);
+  assert.match(second.text, /^ERROR: A booking already exists/);
   assert.equal(c.state.bookings.length, 1);
-  assert.deepEqual(
-    c.state.events.map((e) => e.kind),
-    ['lookup', 'booking', 'blocked'],
-  );
+  assert.deepEqual(c.turn.events.map((e) => e.kind), ['lookup', 'booking', 'blocked']);
 });
 
 test('a booking without consent is refused and logged', () => {
   const c = ctx();
-  const out = createBookingTool({ name: 'X', phone: '0401234567', consent: false }, c);
-  assert.match(out, /^ERROR: The customer has not confirmed/);
-  assert.match(c.state.events[0]?.text ?? '', /consent/);
+  const out = createBookingTool(bookingInput({ consent: false }), c);
+  assert.equal(out.refused, true);
+  assert.match(out.text, /^ERROR: The customer has not confirmed/);
+  assert.match(c.turn.events[0]?.text ?? '', /consent/);
 });
 
 test('contact requests are limited to one and need consent', () => {
   const c = ctx();
-  const base = {
-    name: 'Kalle',
-    phone: '0401234567',
-    email: '',
-    rego: 'XYZ-987',
-    make_model: '',
-    issue_type: 'other',
-    description: 'Courtesy car question for a long repair',
-    preferred_timing: '',
-    consent: true,
-  };
-  assert.match(sendContactRequestTool({ ...base, consent: false }, c), /^ERROR/);
-  assert.match(sendContactRequestTool(base, c), /^Contact request sent\. Reference R-/);
-  assert.match(sendContactRequestTool(base, c), /^ERROR: a contact request has already been sent/);
+  const base = bookingInput({ rego: 'XYZ-987', issue_type: 'other', description: 'Courtesy car question for a long repair', preferred_timing: '' });
+  assert.equal(sendContactRequestTool({ ...base, consent: false }, c).refused, true);
+  const sent = sendContactRequestTool(base, c);
+  assert.match(sent.text, /^Contact request sent\. Reference R-/);
+  assert.equal(c.turn.request?.ref, c.state.requests[0]?.ref);
+  assert.match(sendContactRequestTool(base, c).text, /^ERROR: A contact request has already been sent/);
   assert.equal(c.state.requests.length, 1);
 });
 
 test('unknown tools do not crash the turn', () => {
   const c = ctx();
-  assert.equal(executeTool('delete_everything', {}, c), 'ERROR: unknown tool.');
-  assert.equal(c.state.events[0]?.kind, 'error');
+  assert.deepEqual(executeTool('delete_everything', {}, c), { text: 'ERROR: unknown tool.', refused: true });
+  assert.equal(c.turn.events[0]?.kind, 'error');
 });

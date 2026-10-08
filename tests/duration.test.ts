@@ -6,6 +6,8 @@ test('work minutes fall back to the issue default', () => {
   assert.equal(workMinutes('service'), 120);
   assert.equal(workMinutes('diagnostics', 0), 60);
   assert.equal(workMinutes('other', -5), 60);
+  assert.equal(workMinutes('repair', 'ninety'), 120);
+  assert.equal(workMinutes('repair', Number.NaN), 120);
 });
 
 test('suggestions are clamped and rounded to the booking step', () => {

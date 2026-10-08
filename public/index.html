@@ -7,7 +7,8 @@
   <meta name="description" content="A customer advisor agent for a fictional car repair shop: Claude with tools, a simulated calendar and guardrails. Both sides of the counter on one page.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -57,9 +58,7 @@
       </div>
       <p class="swipe-hint">Swipe sideways to see all three mechanics.</p>
       <h3 class="events-h">Agent actions</h3>
-      <ol id="events" class="events">
-        <li class="empty">Nothing yet. The log fills when the agent looks up times, books, or gets refused.</li>
-      </ol>
+      <ol id="events" class="events"></ol>
     </section>
   </main>
 

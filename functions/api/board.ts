@@ -2,8 +2,8 @@
 // page load; after each chat turn the board travels with the reply.
 
 import { buildBoard } from '../../src/agent/board.ts';
+import { calendar, json, storeFor, type Env } from '../../src/app.ts';
 import { parseLang, parseSessionId } from '../../src/guard/input.ts';
-import { calendar, json, storeFor, type Env } from './chat.ts';
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);

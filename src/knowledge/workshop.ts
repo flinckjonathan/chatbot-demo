@@ -1,6 +1,12 @@
 // The fictional workshop the agent speaks for. Everything the model may
 // claim about the business is in this file and nowhere else. Korjaamo Lumme,
-// its people, prices and phone number are invented for the demo.
+// its people, prices and phone number are invented for the demo. Opening
+// hours of the calendar come from the booking constants, so the text and
+// the calendar cannot disagree.
+
+import { WINDOW_DAYS } from '../booking/calendar.ts';
+import { clockLabel } from '../booking/clock.ts';
+import { BREAKS, DAY_END, DAY_START } from '../booking/duration.ts';
 
 export const WORKSHOP = {
   name: 'Korjaamo Lumme',
@@ -11,6 +17,8 @@ export const WORKSHOP = {
   hours: { fi: 'ma–pe 7.30–16.30', sv: 'mån–fre 7.30–16.30', en: 'Mon–Fri 7.30–16.30' },
   web: 'korjaamolumme.example',
 } as const;
+
+const breaks = BREAKS.map((b) => `${clockLabel(b.start)}–${clockLabel(b.end)}`).join(', ');
 
 /** Knowledge block of the system prompt. Stable text, so it is cached. */
 export const KNOWLEDGE = `=== KORJAAMO LUMME: KNOWLEDGE BASE ===
@@ -48,7 +56,7 @@ THE TEAM (mechanic ids in brackets are used by the booking tools)
 
 BOOKING
 - Bookings through this chat are real bookings in the shop calendar (in this demo, a simulated calendar).
-- The shop takes bookings for the next two weeks on weekdays between 8.00 and 16.00. Lunch break 11.00–11.45.
+- The shop takes bookings for the next ${WINDOW_DAYS} days on weekdays between ${clockLabel(DAY_START)} and ${clockLabel(DAY_END)}. Lunch break ${breaks}.
 - A courtesy car is requested in the job description.
 - Cancellations and changes: by phone ${WORKSHOP.phone} at the latest the day before.
 `;

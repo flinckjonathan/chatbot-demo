@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { cleanText } from '../src/booking/rules.ts';
 import { parseChatBody, parseLang, parseSessionId } from '../src/guard/input.ts';
 import { checkRate, visitorKey } from '../src/guard/rateLimit.ts';
 import { MemoryStore } from '../src/store/store.ts';
@@ -19,6 +20,13 @@ test('parseChatBody rejects what it cannot use', () => {
   assert.equal(parseChatBody({ session: SESSION, message: '   ' }).ok, false);
   const long = parseChatBody({ session: SESSION, message: 'x'.repeat(5000) });
   assert.equal(long.ok && long.body.message.length, 1000);
+});
+
+test('cleanText cuts before it scans and still collapses whitespace inside the slack', () => {
+  const noisy = `a${' '.repeat(20)}b`;
+  assert.equal(cleanText(noisy, 10), 'a b');
+  assert.equal(cleanText('x'.repeat(100_000), 10).length, 10);
+  assert.equal(cleanText(42, 10), '');
 });
 
 test('lang falls back to English for anything that is not one of the three strings', () => {

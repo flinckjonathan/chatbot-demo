@@ -1,6 +1,10 @@
 // Workshop wall-clock helpers for Europe/Helsinki. The booking domain
 // thinks in local dates and minutes-of-day; ISO strings always carry the
 // UTC offset so they stay unambiguous when they travel to the model and back.
+// Every human label of a date or time is built here and nowhere else, so
+// the model, the board and the log never disagree about the format.
+
+import type { Lang, Moment } from './types.ts';
 
 export const TIME_ZONE = 'Europe/Helsinki';
 
@@ -9,8 +13,6 @@ export interface LocalTime {
   date: string;
   /** Minutes since local midnight. */
   minutes: number;
-  /** 1 = Monday ... 7 = Sunday */
-  weekday: number;
 }
 
 const partsFormat = new Intl.DateTimeFormat('en-US', {
@@ -22,10 +24,7 @@ const partsFormat = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
-  weekday: 'short',
 });
-
-const WEEKDAYS: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
 
 function parts(d: Date): Record<string, string> {
   const out: Record<string, string> = {};
@@ -39,11 +38,7 @@ export function pad(n: number): string {
 
 export function toLocal(d: Date): LocalTime {
   const p = parts(d);
-  return {
-    date: `${p.year}-${p.month}-${p.day}`,
-    minutes: Number(p.hour) * 60 + Number(p.minute),
-    weekday: WEEKDAYS[p.weekday ?? ''] ?? 0,
-  };
+  return { date: `${p.year}-${p.month}-${p.day}`, minutes: Number(p.hour) * 60 + Number(p.minute) };
 }
 
 /** Offset of the zone at instant d, in minutes east of UTC (120 or 180). */
@@ -75,11 +70,15 @@ export function fromLocal(date: string, minutes: number): Date {
   return new Date(t);
 }
 
-/** ISO 8601 with offset, e.g. 2026-10-13T09:00:00+03:00. */
-export function localIso(date: string, minutes: number): string {
-  const off = offsetMinutes(fromLocal(date, minutes));
-  const sign = off < 0 ? '-' : '+';
-  const abs = Math.abs(off);
+/** Offset on a date. DST switches at night, so one value serves the whole working day. */
+export function offsetForDate(date: string): number {
+  return offsetMinutes(fromLocal(date, 12 * 60));
+}
+
+/** ISO 8601 with offset, e.g. 2026-10-13T09:00:00+03:00. Pass the day's offset when building many. */
+export function localIso(date: string, minutes: number, offset = offsetForDate(date)): string {
+  const sign = offset < 0 ? '-' : '+';
+  const abs = Math.abs(offset);
   return `${date}T${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}:00${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
 }
 
@@ -101,29 +100,40 @@ export function isDateString(s: unknown): s is string {
   return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && addDays(s, 0) === s;
 }
 
-/** Parses an ISO timestamp that carries an offset or Z. Null when invalid. */
+/** Parses an ISO timestamp that carries an offset or Z (Date.toISOString() output included). Null when invalid. */
 export function parseIso(s: unknown): Date | null {
   if (typeof s !== 'string') return null;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?([+-]\d{2}:\d{2}|Z)$/.test(s)) return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?([+-]\d{2}:\d{2}|Z)$/.test(s)) return null;
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-const DAY_NAMES: Record<'fi' | 'sv' | 'en', readonly string[]> = {
+const DAY_NAMES: Record<Lang, readonly string[]> = {
   fi: ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'],
   sv: ['mån', 'tis', 'ons', 'tors', 'fre', 'lör', 'sön'],
   en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
 };
 
-/**
- * Human label in workshop time, same shape in every language so the model
- * and the UI never disagree about the format: "ma 13.10. klo 9.00".
- */
-export function timeLabel(d: Date, lang: 'fi' | 'sv' | 'en'): string {
+const AT: Record<Lang, string> = { fi: 'klo', sv: 'kl.', en: 'at' };
+
+/** "ma 13.10." */
+export function dayLabel(date: string, lang: Lang): string {
+  const [, m, d] = splitDate(date);
+  return `${DAY_NAMES[lang][weekdayOf(date) - 1] ?? ''} ${d}.${m}.`;
+}
+
+/** "9.00", the clock format used on the booking page, in emails and by the model. */
+export function clockLabel(minutes: number): string {
+  return `${Math.floor(minutes / 60)}.${pad(minutes % 60)}`;
+}
+
+/** "ma 13.10. klo 9.00" for a slot or a booking. */
+export function whenLabel(at: Moment, lang: Lang): string {
+  return `${dayLabel(at.date, lang)} ${AT[lang]} ${clockLabel(at.startMin)}`;
+}
+
+/** The same label for an instant. */
+export function timeLabel(d: Date, lang: Lang): string {
   const local = toLocal(d);
-  const [, m, day] = splitDate(local.date);
-  const name = DAY_NAMES[lang][local.weekday - 1] ?? '';
-  const clock = `${Math.floor(local.minutes / 60)}.${pad(local.minutes % 60)}`;
-  const at = lang === 'fi' ? 'klo' : lang === 'sv' ? 'kl.' : 'at';
-  return `${name} ${day}.${m}. ${at} ${clock}`;
+  return whenLabel({ date: local.date, startMin: local.minutes }, lang);
 }

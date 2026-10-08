@@ -10,7 +10,8 @@ type Params = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
 type Message = Anthropic.Beta.Messages.BetaMessage;
 type ContentBlock = Anthropic.Beta.Messages.BetaContentBlock;
 
-function reply(content: ContentBlock[], stop: Message['stop_reason']): Message {
+/** A response with only the fields the agent reads. Tests build theirs with these too. */
+export function fakeMessage(content: ContentBlock[], stop: Message['stop_reason']): Message {
   const message = {
     id: `msg_fake_${Math.random().toString(36).slice(2, 10)}`,
     type: 'message',
@@ -24,12 +25,12 @@ function reply(content: ContentBlock[], stop: Message['stop_reason']): Message {
   return message as unknown as Message;
 }
 
-function text(t: string): Message {
-  return reply([{ type: 'text', text: t, citations: null } as ContentBlock], 'end_turn');
+export function fakeText(text: string, stop: Message['stop_reason'] = 'end_turn'): Message {
+  return fakeMessage([{ type: 'text', text, citations: null } as ContentBlock], stop);
 }
 
-function toolUse(name: string, input: Record<string, unknown>): Message {
-  return reply([{ type: 'tool_use', id: `toolu_fake_${Date.now()}`, name, input } as ContentBlock], 'tool_use');
+export function fakeToolUse(name: string, input: Record<string, unknown>, id = `toolu_fake_${Date.now()}`): Message {
+  return fakeMessage([{ type: 'tool_use', id, name, input } as ContentBlock], 'tool_use');
 }
 
 function lastUserText(params: Params): string {
@@ -38,18 +39,18 @@ function lastUserText(params: Params): string {
     if (!m || m.role !== 'user') continue;
     if (typeof m.content === 'string') return m.content;
     const textBlock = m.content.find((b) => b.type === 'text');
-    if (textBlock && 'text' in textBlock) return textBlock.text;
-    return '';
+    return textBlock && 'text' in textBlock ? textBlock.text : '';
   }
   return '';
 }
 
-function lastToolResult(params: Params): string | null {
+function lastToolResult(params: Params): { text: string; refused: boolean } | null {
   const last = params.messages[params.messages.length - 1];
   if (!last || last.role !== 'user' || typeof last.content === 'string') return null;
   const block = last.content.find((b) => b.type === 'tool_result');
   if (!block || block.type !== 'tool_result') return null;
-  return typeof block.content === 'string' ? block.content : JSON.stringify(block.content);
+  const text = typeof block.content === 'string' ? block.content : JSON.stringify(block.content);
+  return { text, refused: block.is_error === true };
 }
 
 /** Every piece of plain text in the transcript: user turns, echoed replies and tool results. */
@@ -81,18 +82,19 @@ function offeredSlot(params: Params): { mechanicId: string; start: string } | nu
 
 export class FakeModel implements ModelClient {
   async create(params: Params): Promise<Message> {
+    if (params.tool_choice?.type === 'none') return fakeText('That is all I can do for now. This is the scripted fake model speaking.');
     const result = lastToolResult(params);
-    if (result !== null) {
-      if (result.startsWith('Booking confirmed')) return text(`${result.split('. Tell')[0]}. This is the scripted fake model speaking.`);
-      if (result.startsWith('Contact request sent')) return text(result.split('. Tell')[0] ?? result);
-      if (result.startsWith('ERROR')) return text(`The tool refused: ${result.slice(7)}`);
-      return text(`Here is what the calendar says:\n${result}\n\nAnswer "yes" to book the first time.`);
+    if (result) {
+      if (result.refused) return fakeText(`The tool refused: ${result.text.replace(/^ERROR: /, '')}`);
+      if (result.text.startsWith('Booking confirmed')) return fakeText(`${result.text.split('. Tell')[0]}. This is the scripted fake model speaking.`);
+      if (result.text.startsWith('Contact request sent')) return fakeText(result.text.split('. Tell')[0] ?? result.text);
+      return fakeText(`Here is what the calendar says:\n${result.text}\n\nAnswer "yes" to book the first time.`);
     }
     const asked = lastUserText(params);
     if (/\b(yes|kyllä|ja|joo)\b/i.test(asked)) {
       const slot = offeredSlot(params);
       if (slot) {
-        return toolUse('create_booking', {
+        return fakeToolUse('create_booking', {
           name: 'Demo Customer',
           phone: '040 123 4567',
           email: '',
@@ -109,8 +111,8 @@ export class FakeModel implements ModelClient {
       }
     }
     if (/\b(book|booking|varaa|varata|boka|aika|time)\b/i.test(asked)) {
-      return toolUse('get_available_times', { issue_type: 'service', powertrain: '', mechanic_id: '', duration_min: 0, from_date: '' });
+      return fakeToolUse('get_available_times', { issue_type: 'service', powertrain: '', mechanic_id: '', duration_min: 0, from_date: '' });
     }
-    return text('This is the scripted fake model, no API key is set. Ask to book a time to see the tools work, then answer yes to confirm.');
+    return fakeText('This is the scripted fake model, no API key is set. Ask to book a time to see the tools work, then answer yes to confirm.');
   }
 }

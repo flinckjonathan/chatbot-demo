@@ -1,16 +1,17 @@
-// The three tools the agent may call, and what happens when it does. Tool
-// results are written for the model: short, factual, and prefixed with
-// ERROR when the model has to change course. Every call also produces an
-// event for the counter view, so a visitor sees what the agent did.
+// The three tools the agent may call, and what happens when it does. A
+// tool answers the model with a short factual text; a refusal carries the
+// ERROR prefix the system prompt tells the model to look for, and is also
+// flagged as an error on the API side. Every call writes an event for the
+// counter view, so a visitor sees what the agent did.
 
 import type Anthropic from '@anthropic-ai/sdk';
-import { WINDOW_DAYS, bookingWindow, type Calendar, type CalendarFactory } from '../booking/calendar.ts';
-import { addDays, isDateString, parseIso, timeLabel, toLocal } from '../booking/clock.ts';
-import { createBooking, createContactRequest } from '../booking/core.ts';
-import { DEFAULT_WORK, workMinutes } from '../booking/duration.ts';
-import { mechanicById, suitableMechanics } from '../booking/mechanics.ts';
-import { cleanText } from '../booking/rules.ts';
-import { ISSUE_TYPES, POWERTRAINS, isIssueType, isPowertrain, type Lang } from '../booking/types.ts';
+import { bookingWindow, type CalendarFactory } from '../booking/calendar.ts';
+import { whenLabel } from '../booking/clock.ts';
+import { createBooking, createContactRequest, describeWorkTimes, parseJob, type RawInput } from '../booking/core.ts';
+import { WORK_MAX, WORK_MIN } from '../booking/duration.ts';
+import { mechanicName, suitableMechanics } from '../booking/mechanics.ts';
+import { RULES, cleanText } from '../booking/rules.ts';
+import { ISSUE_TYPES, POWERTRAINS, type Booking, type ContactRequest, type Lang, type Slot } from '../booking/types.ts';
 import { WORKSHOP } from '../knowledge/workshop.ts';
 import type { AgentEvent, SessionState } from '../store/store.ts';
 
@@ -19,9 +20,7 @@ type BetaTool = Anthropic.Beta.Messages.BetaTool;
 const ISSUE_ENUM = { type: 'string', enum: [...ISSUE_TYPES] } as const;
 const POWERTRAIN_ENUM = { type: 'string', enum: [...POWERTRAINS], description: 'Empty string when unknown.' } as const;
 
-const durationHelp = `Work minutes. 0 means the default for the issue type (${Object.entries(DEFAULT_WORK)
-  .map(([k, v]) => `${k} ${v}`)
-  .join(', ')}). Give a value only when the customer described the job precisely.`;
+const durationHelp = `Work minutes between ${WORK_MIN} and ${WORK_MAX}. 0 means the default for the issue type (${describeWorkTimes()}). Give a value only when the customer described the job precisely.`;
 
 /**
  * strict: true makes the API guarantee the input matches the schema, so the
@@ -62,7 +61,7 @@ export const TOOLS: BetaTool[] = [
         make_model: { type: 'string', description: 'Make and model, or empty string.' },
         powertrain: POWERTRAIN_ENUM,
         issue_type: ISSUE_ENUM,
-        description: { type: 'string', description: 'What the customer wants done, in the customer\'s words. Mention a courtesy car here if asked for.' },
+        description: { type: 'string', description: "What the customer wants done, in the customer's words. Mention a courtesy car here if asked for." },
         mechanic_id: { type: 'string' },
         start: { type: 'string', description: 'Exact ISO start time from get_available_times.' },
         duration_min: { type: 'integer', description: durationHelp },
@@ -96,113 +95,138 @@ export const TOOLS: BetaTool[] = [
   },
 ];
 
+/** What one turn's tool calls produced; the agent folds it into the session afterwards. */
+export interface TurnLog {
+  events: AgentEvent[];
+  booking?: Booking;
+  request?: ContactRequest;
+}
+
 export interface ToolContext {
   now: Date;
   lang: Lang;
-  /** Mutated in place: bookings, requests and events of this conversation. */
+  /** Read for the guards; bookings and requests are appended in place. */
   state: SessionState;
   calendar: CalendarFactory;
+  turn: TurnLog;
 }
 
-/** A fresh calendar for every call, so a booking made this turn blocks the next lookup. */
-function calendarFor(ctx: ToolContext): Calendar {
-  return ctx.calendar(ctx.now, ctx.state.bookings);
+export interface ToolOutcome {
+  text: string;
+  refused: boolean;
 }
 
 function record(ctx: ToolContext, kind: AgentEvent['kind'], text: string): void {
-  ctx.state.events.push({ at: ctx.now.toISOString(), kind, text });
+  ctx.turn.events.push({ at: ctx.now.toISOString(), kind, text });
 }
 
-function slotLine(startIso: string, lang: Lang): string {
-  const d = parseIso(startIso);
-  return `${d ? timeLabel(d, lang) : startIso} [${startIso}]`;
+/** Logs why and tells the model what to change. The one place the ERROR prefix is written. */
+function refuse(ctx: ToolContext, log: string, text: string): ToolOutcome {
+  record(ctx, 'blocked', log);
+  return { text: `ERROR: ${text}`, refused: true };
 }
 
-type Input = Record<string, unknown>;
+function done(text: string): ToolOutcome {
+  return { text, refused: false };
+}
 
-export function getAvailableTimes(input: Input, ctx: ToolContext): string {
-  if (!isIssueType(input.issue_type)) return 'ERROR: issue_type is not one of the allowed values.';
-  const issue = input.issue_type;
-  const powertrain = isPowertrain(input.powertrain) ? input.powertrain : '';
-  const workMin = workMinutes(issue, typeof input.duration_min === 'number' ? input.duration_min : 0);
+function slotLine(slot: Slot, lang: Lang): string {
+  return `${whenLabel(slot, lang)} [${slot.start}]`;
+}
+
+export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcome {
+  const job = parseJob(input);
+  if (!job.ok) return refuse(ctx, `Lookup refused: ${job.rejection.message}`, job.rejection.message);
+  const { issue, powertrain, workMin } = job.value;
   const suitable = suitableMechanics(issue, powertrain);
   if (suitable.length === 0) {
-    record(ctx, 'blocked', `Lookup refused: no mechanic does ${issue} for powertrain "${powertrain}".`);
-    return `ERROR: no mechanic does this job for this powertrain. Offer a contact request or the phone number ${WORKSHOP.phone}.`;
+    return refuse(
+      ctx,
+      `Lookup refused: no mechanic does ${issue} for powertrain "${powertrain}".`,
+      `No mechanic does this job for this powertrain. Offer a contact request or the phone number ${WORKSHOP.phone}.`,
+    );
   }
-  const calendar = calendarFor(ctx);
-  const window = bookingWindow(ctx.now);
-  const mechanicId = cleanText(input.mechanic_id, 20);
+  const calendar = ctx.calendar(ctx.now, ctx.state.bookings);
+  const window = bookingWindow(ctx.now, input.from_date);
+  const mechanicId = cleanText(input.mechanic_id, RULES.max.mechanicId);
 
   if (!mechanicId) {
     const lines = suitable.map((m) => {
-      const first = calendar.freeSlots(m.id, workMin, window.from, window.to)[0];
+      const [first] = calendar.freeSlots(m.id, workMin, window.from, window.to, 1);
       return first
-        ? `${m.id} (${m.name}, ${m.title}): earliest free ${slotLine(first.start, ctx.lang)}`
-        : `${m.id} (${m.name}): no free times within ${WINDOW_DAYS} days`;
+        ? `${m.id} (${m.name}, ${m.title}): earliest free ${slotLine(first, ctx.lang)}`
+        : `${m.id} (${m.name}): no free times before ${window.to}`;
     });
     record(ctx, 'lookup', `Looked up the earliest times for ${issue} (${workMin} min): ${suitable.map((m) => m.name).join(', ')}.`);
-    return `Work time ${workMin} min. Earliest free times of the suitable mechanics (ISO value in brackets for booking):\n${lines.join('\n')}\nCall again with a mechanic_id to get all of one mechanic's times.`;
+    return done(
+      `Work time ${workMin} min. Earliest free times of the suitable mechanics (ISO value in brackets for booking):\n${lines.join('\n')}\nCall again with a mechanic_id to get all of one mechanic's times.`,
+    );
   }
 
   const mechanic = suitable.find((m) => m.id === mechanicId);
   if (!mechanic) {
-    record(ctx, 'blocked', `Lookup refused: ${mechanicId} does not do ${issue}.`);
-    return `ERROR: mechanic "${mechanicId}" does not do this job. Suitable: ${suitable.map((m) => m.id).join(', ')}.`;
+    return refuse(
+      ctx,
+      `Lookup refused: ${mechanicId} does not do ${issue}.`,
+      `Mechanic "${mechanicId}" does not do this job. Suitable: ${suitable.map((m) => m.id).join(', ')}.`,
+    );
   }
-  const today = toLocal(ctx.now).date;
-  let from = today;
-  if (isDateString(input.from_date) && input.from_date > today && input.from_date <= window.to) from = input.from_date;
-  let to = addDays(from, 13);
-  if (to > window.to) to = window.to;
-  const slots = calendar.freeSlots(mechanic.id, workMin, from, to).slice(0, 20);
-  record(ctx, 'lookup', `Looked up ${mechanic.name}'s times for ${issue} (${workMin} min) from ${from}: ${slots.length} free.`);
+  const slots = calendar.freeSlots(mechanic.id, workMin, window.from, window.to, 20);
+  record(ctx, 'lookup', `Looked up ${mechanic.name}'s times for ${issue} (${workMin} min) from ${window.from}: ${slots.length} free.`);
   if (slots.length === 0) {
-    return `${mechanic.name}: no free times between ${from} and ${to}. Try a later from_date or another mechanic.`;
+    return done(`${mechanic.name}: no free times between ${window.from} and ${window.to}. Try a later from_date or another mechanic.`);
   }
-  return `Work time ${workMin} min. ${mechanic.name}, free times (ISO value in brackets for booking):\n${slots.map((s) => slotLine(s.start, ctx.lang)).join('\n')}`;
+  return done(`Work time ${workMin} min. ${mechanic.name}, free times (ISO value in brackets for booking):\n${slots.map((s) => slotLine(s, ctx.lang)).join('\n')}`);
 }
 
-export function createBookingTool(input: Input, ctx: ToolContext): string {
+export function createBookingTool(input: RawInput, ctx: ToolContext): ToolOutcome {
   const existing = ctx.state.bookings[0];
   if (existing) {
-    record(ctx, 'blocked', `Second booking refused: ${existing.ref} already exists in this conversation.`);
-    return `ERROR: a booking already exists in this conversation (reference ${existing.ref}). Do not make another one; changes go by phone ${WORKSHOP.phone}.`;
+    return refuse(
+      ctx,
+      `Second booking refused: ${existing.ref} already exists in this conversation.`,
+      `A booking already exists in this conversation (reference ${existing.ref}). Do not make another one; changes go by phone ${WORKSHOP.phone}.`,
+    );
   }
-  const result = createBooking(input, calendarFor(ctx), ctx.now);
-  if (result.state === 'booked') {
-    const b = result.booking;
-    ctx.state.bookings.push(b);
-    const when = parseIso(b.start);
-    const label = when ? timeLabel(when, ctx.lang) : b.start;
-    const mech = mechanicById(b.mechanicId)?.name ?? b.mechanicId;
-    record(ctx, 'booking', `Booked ${mech}, ${label}, ${b.issueType} ${b.workMin} min, ${b.vehicle}. Reference ${b.ref}.`);
-    return `Booking confirmed. Reference ${b.ref}. Mechanic ${mech}. Start ${label}. Tell the customer the reference, the mechanic and the start time, and that changes and cancellations go by phone ${WORKSHOP.phone}.`;
+  const result = createBooking(input, ctx.calendar(ctx.now, ctx.state.bookings), ctx.now);
+  if (result.state !== 'booked') {
+    const why = result.state === 'rejected' ? result.field : result.reason;
+    return refuse(ctx, `Booking refused (${why}): ${result.message}`, result.message);
   }
-  const why = result.state === 'rejected' ? `${result.field}: ${result.message}` : `${result.reason}: ${result.message}`;
-  record(ctx, 'blocked', `Booking refused (${why})`);
-  return `ERROR: ${result.message}`;
+  const b = result.booking;
+  ctx.state.bookings.push(b);
+  ctx.turn.booking = b;
+  const label = whenLabel(b, ctx.lang);
+  const mechanic = mechanicName(b.mechanicId);
+  record(ctx, 'booking', `Booked ${mechanic}, ${label}, ${b.issueType} ${b.workMin} min, ${b.vehicle}. Reference ${b.ref}.`);
+  return done(
+    `Booking confirmed. Reference ${b.ref}. Mechanic ${mechanic}. Start ${label}. Tell the customer the reference, the mechanic and the start time, and that changes and cancellations go by phone ${WORKSHOP.phone}.`,
+  );
 }
 
-export function sendContactRequestTool(input: Input, ctx: ToolContext): string {
+export function sendContactRequestTool(input: RawInput, ctx: ToolContext): ToolOutcome {
   const existing = ctx.state.requests[0];
   if (existing) {
-    record(ctx, 'blocked', `Second contact request refused: ${existing.ref} already sent in this conversation.`);
-    return `ERROR: a contact request has already been sent in this conversation (reference ${existing.ref}). Do not send another one.`;
+    return refuse(
+      ctx,
+      `Second contact request refused: ${existing.ref} already sent in this conversation.`,
+      `A contact request has already been sent in this conversation (reference ${existing.ref}). Do not send another one.`,
+    );
   }
   const result = createContactRequest(input, ctx.now);
-  if (!result.ok) {
-    record(ctx, 'blocked', `Contact request refused: ${result.message}`);
-    return `ERROR: ${result.message}`;
-  }
-  ctx.state.requests.push(result.request);
-  record(ctx, 'request', `Contact request sent for ${result.request.vehicle}, ${result.request.issueType}. Reference ${result.request.ref}. Staff will call back.`);
-  return `Contact request sent. Reference ${result.request.ref}. Tell the customer the reference and that the time is not confirmed yet: staff will call back. Urgent matters by phone ${WORKSHOP.phone}.`;
+  if (result.state !== 'sent') return refuse(ctx, `Contact request refused (${result.field}): ${result.message}`, result.message);
+  const r = result.request;
+  ctx.state.requests.push(r);
+  ctx.turn.request = r;
+  record(ctx, 'request', `Contact request sent for ${r.vehicle}, ${r.issueType}. Reference ${r.ref}. Staff will call back.`);
+  return done(
+    `Contact request sent. Reference ${r.ref}. Tell the customer the reference and that the time is not confirmed yet: staff will call back. Urgent matters by phone ${WORKSHOP.phone}.`,
+  );
 }
 
 /** Routes one tool_use block to its executor. Unknown names are an error for the model, not a crash. */
-export function executeTool(name: string, input: unknown, ctx: ToolContext): string {
-  const args = input && typeof input === 'object' ? (input as Input) : {};
+export function executeTool(name: string, input: unknown, ctx: ToolContext): ToolOutcome {
+  const args: RawInput = input && typeof input === 'object' ? (input as RawInput) : {};
   switch (name) {
     case 'get_available_times':
       return getAvailableTimes(args, ctx);
@@ -212,6 +236,6 @@ export function executeTool(name: string, input: unknown, ctx: ToolContext): str
       return sendContactRequestTool(args, ctx);
     default:
       record(ctx, 'error', `Unknown tool "${name}" requested.`);
-      return 'ERROR: unknown tool.';
+      return { text: 'ERROR: unknown tool.', refused: true };
   }
 }

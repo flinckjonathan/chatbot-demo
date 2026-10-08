@@ -29,11 +29,12 @@ export function emptySession(): SessionState {
   return { bookings: [], requests: [], events: [], transcript: [] };
 }
 
-/**
- * Keeps the state bounded: the log keeps its newest MAX_EVENTS lines and
- * the transcript its newest MAX_TRANSCRIPT turns. Called once per turn by
- * the agent, after it has read what the turn added.
- */
+export const SESSION_TTL_SEC = 24 * 60 * 60;
+export const MAX_EVENTS = 40;
+export const MAX_TRANSCRIPT = 12;
+export const MAX_TRANSCRIPT_CHARS = 1500;
+
+/** Keeps the state bounded: the newest MAX_EVENTS log lines and MAX_TRANSCRIPT turns. */
 export function trimSession(state: SessionState): void {
   if (state.events.length > MAX_EVENTS) state.events.splice(0, state.events.length - MAX_EVENTS);
   if (state.transcript.length > MAX_TRANSCRIPT) state.transcript.splice(0, state.transcript.length - MAX_TRANSCRIPT);
@@ -48,11 +49,6 @@ export interface Counter {
   /** Increments a counter that expires after ttlSec and returns the new value. */
   incr(key: string, ttlSec: number): Promise<number>;
 }
-
-export const SESSION_TTL_SEC = 24 * 60 * 60;
-export const MAX_EVENTS = 40;
-export const MAX_TRANSCRIPT = 12;
-export const MAX_TRANSCRIPT_CHARS = 1500;
 
 export class MemoryStore implements SessionStore, Counter {
   private sessions = new Map<string, SessionState>();
@@ -106,7 +102,8 @@ export class KvStore implements SessionStore, Counter {
     try {
       const parsed = JSON.parse(raw) as Partial<SessionState>;
       return {
-        bookings: Array.isArray(parsed.bookings) ? parsed.bookings : [],
+        // A booking written by an older build lacks the minute fields; drop it rather than crash the board.
+        bookings: Array.isArray(parsed.bookings) ? parsed.bookings.filter((b) => typeof b.startMin === 'number') : [],
         requests: Array.isArray(parsed.requests) ? parsed.requests : [],
         events: Array.isArray(parsed.events) ? parsed.events : [],
         transcript: Array.isArray(parsed.transcript) ? parsed.transcript : [],

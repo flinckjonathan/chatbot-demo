@@ -25,16 +25,18 @@ export const DEFAULT_WORK: Readonly<Record<IssueType, number>> = {
   inspection: 90,
   ac: 90,
   diagnostics: 60,
+  tyres: 30,
   other: 60,
 };
 
 /**
- * Work minutes for an issue. A suggestion (from the model) is accepted when
- * it is in WORK_MIN ... WORK_MAX, rounded to the step.
+ * Work minutes for an issue. The model's suggestion is accepted when it is
+ * a number in WORK_MIN ... WORK_MAX, rounded to the step; anything else
+ * means the default.
  */
-export function workMinutes(issue: IssueType, suggested = 0): number {
+export function workMinutes(issue: IssueType, suggested: unknown = 0): number {
   const fallback = DEFAULT_WORK[issue];
-  if (!Number.isFinite(suggested) || suggested <= 0) return fallback;
+  if (typeof suggested !== 'number' || !Number.isFinite(suggested) || suggested <= 0) return fallback;
   const stepped = Math.round(suggested / WORK_STEP) * WORK_STEP;
   return Math.max(WORK_MIN, Math.min(WORK_MAX, stepped));
 }

@@ -8,6 +8,7 @@ export const ISSUE_TYPES = [
   'inspection',
   'ac',
   'diagnostics',
+  'tyres',
   'other',
 ] as const;
 export type IssueType = (typeof ISSUE_TYPES)[number];
@@ -23,8 +24,12 @@ export function isPowertrain(v: unknown): v is Powertrain {
   return typeof v === 'string' && (POWERTRAINS as readonly string[]).includes(v);
 }
 
-export type Lang = 'fi' | 'sv' | 'en';
-export const LANGS: readonly Lang[] = ['fi', 'sv', 'en'];
+export const LANGS = ['fi', 'sv', 'en'] as const;
+export type Lang = (typeof LANGS)[number];
+
+export function isLang(v: unknown): v is Lang {
+  return typeof v === 'string' && (LANGS as readonly string[]).includes(v);
+}
 
 export interface Mechanic {
   id: string;
@@ -33,16 +38,28 @@ export interface Mechanic {
   skills: readonly IssueType[];
 }
 
-/** A bookable start time for one mechanic. ISO strings carry the offset. */
-export interface Slot {
+/** A moment in the workshop day: calendar date plus minutes since midnight. */
+export interface Moment {
+  date: string;
+  startMin: number;
+}
+
+/**
+ * A bookable start time for one mechanic. The minutes are what the calendar
+ * computes with; the ISO strings (with offset) are what travels to the model
+ * and comes back in create_booking.
+ */
+export interface Slot extends Moment {
   mechanicId: string;
+  endMin: number;
   start: string;
   end: string;
 }
 
-export interface Booking {
+export interface Booking extends Moment {
   ref: string;
   mechanicId: string;
+  endMin: number;
   start: string;
   end: string;
   workMin: number;
@@ -85,3 +102,7 @@ export type BookingResult =
   | { state: 'booked'; booking: Booking }
   | { state: 'rejected'; field: RejectedField; message: string }
   | { state: 'unavailable'; reason: 'past' | 'outside_window' | 'gone'; message: string };
+
+export type ContactResult =
+  | { state: 'sent'; request: ContactRequest }
+  | { state: 'rejected'; field: RejectedField; message: string };

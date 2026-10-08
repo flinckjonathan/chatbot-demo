@@ -36,11 +36,11 @@ browser (public/)                Cloudflare Pages Function            Claude
 
 **The agent** (`src/agent/`): one turn is `runTurn`. It builds the system prompt in three blocks (binding rules, knowledge base with the cache point, current situation), calls the model, runs the tools it asks for, and always returns a sentence for the customer. If the model fails after a booking already went through, a fixed text still tells the customer the reference. A refusal from the safety classifier becomes a polite fixed text.
 
-**The tools** (`src/agent/tools.ts`): three tools with `strict: true` schemas, so the API guarantees the shape and the executors only defend against values that are valid but wrong: an unknown mechanic, a stale time, a second booking. Every call writes an event for the counter view.
+**The tools** (`src/agent/tools.ts`): three tools with `strict: true` schemas, so the API guarantees the shape and the executors only defend against values that are valid but wrong: an unknown mechanic, a stale time, a second booking. A refusal is a structured outcome: it is flagged as an error on the API side, prefixed for the model, and logged for the counter view. Tyre jobs are their own issue type, so the model classifies them and the tools refuse them with the phone-only wording instead of guessing from keywords.
 
 **The booking core** (`src/booking/core.ts`): one function, one result. `createBooking` cleans and validates the raw input, checks the slot against the calendar and returns `booked`, `rejected` (with the field) or `unavailable` (with the reason). Callers switch on the state. No I/O inside, so it is tested without mocks.
 
-**The calendar seam** (`src/booking/calendar.ts`): a one-method interface, `freeSlots`, and a factory that both the agent and the board get their calendar from. The demo ships a deterministic mock: the same slot is free on every page load (hash of mechanic, date and start), one mechanic is booked out for the first days, lunch is closed, blocks include handling time and stretch across the break. A real workshop system would be a second implementation of the same interface, swapped in one place (`functions/api/chat.ts`).
+**The calendar seam** (`src/booking/calendar.ts`): two methods, `freeSlots` (with a limit, so "earliest time" stops at the first hit) and `findSlot` (the slot behind a start time the model hands back), plus a factory that both the agent and the board get their calendar from. The demo ships a deterministic mock: the same slot is free on every page load (hash of mechanic, date and start), one mechanic is booked out for the first days, lunch is closed, blocks include handling time and stretch across the break. A real workshop system would be a second implementation of the same interface, swapped in the composition root (`src/app.ts`).
 
 **Guardrails**:
 
@@ -49,7 +49,8 @@ browser (public/)                Cloudflare Pages Function            Claude
 - One booking and one contact request per conversation, enforced in the executor, not in the prompt.
 - Tool loop capped at three rounds; when the model still wants a tool after that, it is asked to close the turn in words. Message cut to 1000 characters, transcript to 12 turns.
 - The transcript lives on the server. The browser sends only the new message, so a visitor cannot forge earlier assistant turns to steer the model.
-- Rate limits: 12 messages per visitor per 10 minutes, 400 per day for the whole demo. Visitors are counted by a salted hash of the IP.
+- Rate limits: 12 messages per visitor per 10 minutes, 400 per day for the whole demo. Visitors are counted by a salted hash of the IP, and a request the visitor limit rejects does not eat the daily budget. Bodies over 16 KB are rejected on the header alone.
+- Every customer-facing sentence, including the HTTP error texts, lives in `src/agent/texts.ts` in three languages; the browser only places what the server sends.
 - Nothing from the model is trusted as data: inputs are parsed as JSON and validated, times are compared as instants, not strings.
 
 ## Model settings
@@ -104,12 +105,13 @@ npm run deploy
 ```
 public/           the page: index.html, styles.css, app.js (no build step)
 functions/api/    chat.ts (POST), board.ts (GET): thin HTTP shells
+src/app.ts        composition root: which calendar, store and model the handlers use
 src/agent/        prompt.ts, tools.ts, run.ts, board.ts, texts.ts, fake.ts
 src/booking/      types, clock, duration, mechanics, rules, calendar, core
 src/guard/        input parsing and limits, rate limiting
 src/store/        session state and counters: memory for tests, KV in production
 src/knowledge/    the fictional shop
-tests/            node --test, 40 tests
+tests/            node --test, 53 tests
 DESIGN.md         the visual decisions
 ```
 
@@ -117,6 +119,6 @@ DESIGN.md         the visual decisions
 
 Session data (bookings, requests, the log, the transcript) lives in KV for 24 hours under a random session id and is then gone. Names and phone numbers never leave the server: the board shows references and vehicles only. IPs are hashed with a salt before they touch a counter. The page asks visitors not to enter real personal details.
 
-Known limit: KV has no compare-and-set, so two tabs that share one session id (a duplicated tab) can race the read-modify-write of the session and slip past the one-booking guard. A production store would use a transaction or a version check.
+Known limits of KV: it has no compare-and-set, so two tabs that share one session id (a duplicated tab) can race the read-modify-write of the session and slip past the one-booking guard; it allows one write per second per key, so the shared daily counter can reject two visitors who post in the same second; and the free tier allows 1,000 writes a day, which three writes per turn reach before the demo's own cap of 400 turns. A production store would use a transaction or a version check and a real rate limiter.
 
 TODO: license file.

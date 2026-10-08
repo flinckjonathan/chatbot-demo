@@ -3,9 +3,8 @@
 // client; it lives in the session store, so a visitor cannot forge earlier
 // assistant turns.
 
-import { LANGS, type Lang } from '../booking/types.ts';
 import { cleanText } from '../booking/rules.ts';
-import type { HistoryItem } from '../store/store.ts';
+import { isLang, type Lang } from '../booking/types.ts';
 
 export const MAX_MESSAGE_CHARS = 1000;
 
@@ -15,15 +14,10 @@ export interface ChatBody {
   message: string;
 }
 
-/** What one turn of the agent needs: the body plus the stored transcript. */
-export interface ChatRequest extends ChatBody {
-  history: HistoryItem[];
-}
-
 export const SESSION_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 export function parseLang(v: unknown): Lang {
-  return typeof v === 'string' && (LANGS as readonly string[]).includes(v) ? (v as Lang) : 'en';
+  return isLang(v) ? v : 'en';
 }
 
 export function parseSessionId(v: unknown): string {
