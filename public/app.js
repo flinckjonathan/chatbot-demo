@@ -92,7 +92,8 @@ async function onSubmit(event) {
     addLine('msg system', 'No connection to the server.');
   } finally {
     setBusy(false);
-    els.input.focus();
+    // Keep the page where it is; the message list has its own scrolling.
+    els.input.focus({ preventScroll: true });
   }
 }
 

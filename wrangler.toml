@@ -9,4 +9,4 @@ pages_build_output_dir = "public"
 
 [[kv_namespaces]]
 binding = "DEMO_KV"
-id = "replace-with-your-kv-namespace-id"
+id = "83b39cb0853b4269888268d169aae3fe"

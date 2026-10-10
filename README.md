@@ -4,7 +4,9 @@ A customer advisor agent for a car repair shop that books real times. You chat o
 
 The shop is fictional and the calendar is simulated. The agent design is the one I run in production at a repair shop, rebuilt from scratch in TypeScript for this demo so that nothing from the real business leaves the building.
 
-TODO: live demo URL and a screenshot once deployed.
+Live demo: https://chatbot-demo-9vq.pages.dev
+
+![Customer chat on the left, the week board and the agent's log on the right, with a booking that just landed](docs/screenshot.png)
 
 ## Try it
 
