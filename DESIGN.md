@@ -1,16 +1,16 @@
 # DESIGN.md
 
 ## Brief
-Subject: a customer advisor agent for a fictional car repair shop (Korjaamo Lumme) that books real times in a simulated calendar.
-Audience: a hackathon reviewer or developer who opens the link, types one question and wants to see what the agent actually did.
-Page's single job: have a conversation that ends in a booking, and see the booking land behind the counter.
-Differentiator: both sides of the counter on one page, nothing hidden.
+Subject: a customer advisor agent for a placeholder car repair shop that books real times in a simulated calendar, with the staff side on its own page.
+Audience: a hackathon reviewer or developer who opens the link, types one question or sends a picture, and wants to see what the agent actually did.
+Page's single job: have a conversation in the widget that ends in a booking, then open the staff view and see the booking land and the prompt change after an approval.
+Differentiator: both sides of the counter, nothing hidden.
 
 ## Direction
 Aesthetic: workshop paperwork. Concrete floor, white job cards, one hi-vis accent.
 Not a dark terminal, not cream and terracotta.
 
-Signature element: the week board behind the counter that updates live when the agent books.
+Signature element: the week board behind the counter that shows the booking the chat just made.
 
 ## Colour
 --bg:          #E8EAE6   concrete
@@ -18,43 +18,43 @@ Signature element: the week board behind the counter that updates live when the 
 --ink:         #15181B
 --muted:       #5B636C
 --line:        #C9CDC7
---free:        #EEF1EC   free slot chip
---accent:      #E8590C   hi-vis orange: send button, booked block, focus ring
---accent-soft: #FBE3D6   only inside the landing pulse
+--free:        #EEF1EC   free slot chip, prompt preview background
+--accent:      #E8590C   hi-vis orange: chat button, send, booked block, approved status, focus ring
+--accent-soft: #FBE3D6   only the fake-model note
 
-Rule: the accent appears at most three times per viewport (send, focus, booked blocks).
+Rule: the accent appears at most three times per viewport.
 
 ## Type
-Display: Big Shoulders Display, weight 900, uppercase, tracking 0.02em. Sign, panel titles, mechanic names.
+Display: Big Shoulders Display, weight 900, uppercase, tracking 0.02em. Sign, panel titles, technician roles.
 Body:    Atkinson Hyperlegible, weight 400 and 700, line-height 1.5.
-Mono:    IBM Plex Mono, weights 400 and 600. Times, references, day labels, log timestamps only.
+Mono:    IBM Plex Mono, weights 400 and 600. Times, references, day labels, log timestamps, the prompt preview.
 
 Scale: 12 / 13 / 16 / 18 / 22 / 48 to 96 (sign only).
 
+## Icons
+One family, drawn inline: 24px strokes, width 2, round caps. Chat, close, camera, send, thumbs up, thumbs down. Nothing else.
+
 ## Voice
 Three adjectives: plain, specific, unhurried.
-Forbidden: em dash as punctuation, small-caps eyebrow labels, "X, not Y" sentences, invented numbers.
+Forbidden: em dash as punctuation, small-caps eyebrow labels, "X, not Y" sentences, invented names or numbers presented as real.
 
 ## Layout
-Sections in order:
-1. Sign: shop name, one sentence of what this is, two links.
-2. Counter: customer side (chat) left, behind the counter (board + log) right. Stacks under 900 px.
-3. How it works: three short paragraphs.
-4. Footer: provenance and fiction notice.
+Customer site (index.html): sign, a short placeholder shop (hero, three services, hours), how it works, footer. The chat is a button in the corner that opens a 400 px panel; on phones the panel fills the screen.
+Staff page (staff.html): sign with the session line, two columns (week board and log, the approval queue), then the prompt preview full width. Stacks under 1100 px.
 
-Explicitly not on this site:
+Explicitly not on these pages:
 - no centred hero with a badge above the headline
 - no icon grid
 - no dark mode (one committed look)
 
 ## Motion budget
-One page-load stagger (sign, chat, desk, how: 12 px rise, 0.6 s, 80 ms apart).
-One landing pulse when a booking appears on the board (1.2 s).
-One blink on the "advisor is working" line.
-Message bubbles rise 0.3 s. Nothing else animates. prefers-reduced-motion disables all of it.
+One page-load stagger (sign, main, how: 12 px rise, 0.6 s, 80 ms apart).
+The chat panel and each message rise 0.3 s when they appear.
+One blink on the "working" line. Nothing else animates. prefers-reduced-motion disables all of it.
 
 ## Stack
-Static HTML, CSS and one JavaScript module in public/. Cloudflare Pages Functions in TypeScript for the API. No build step for the UI.
+Static HTML, CSS and three JavaScript modules in public/. Cloudflare Pages Functions in TypeScript for the API. No build step for the UI.
 
 ## Learned rules
 - Visible text follows the Finnish writing guide of the parent project: no em dashes, short sentences, headings first and explanations as plain sentences.
+- Nothing invented may look real: the shop has no name, the technicians have roles, the phone number is a placeholder and the page says so.

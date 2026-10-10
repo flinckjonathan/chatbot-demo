@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chatbot Demo staff view</title>
+  <meta name="description" content="Behind the counter of the Chatbot Demo: the week board, the agent's log, the approval queue for staff additions, and the prompt the bot sees right now.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"></noscript>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="staff">
+  <header class="sign">
+    <p class="sign-name">Behind the counter</p>
+    <p class="sign-sub">What the agent did in the shop systems, and what the staff can do about it. Everything on this page belongs to the session in your browser; other visitors have their own.</p>
+    <nav class="sign-links">
+      <a href="./" id="site-link">Customer site</a>
+      <a href="https://github.com/flinckjonathan/chatbot-demo">Source on GitHub</a>
+    </nav>
+    <p class="session-line">Session <code id="session-id"></code> <button type="button" class="linkish" id="new-session">Start a new session</button> <button type="button" class="linkish" id="refresh">Refresh</button></p>
+  </header>
+
+  <main class="staff-grid">
+    <section class="panel desk" aria-labelledby="board-h">
+      <div class="panel-head">
+        <h2 id="board-h">Week board</h2>
+        <p>The next five working days. Bookings made in this session appear as blocks.</p>
+      </div>
+      <div class="board-wrap">
+        <table class="board" id="board" aria-label="Week board"></table>
+      </div>
+      <p class="swipe-hint">Swipe sideways to see all three technicians.</p>
+      <h3 class="events-h">Agent log</h3>
+      <ol id="events" class="events"></ol>
+    </section>
+
+    <section class="panel desk" aria-labelledby="add-h">
+      <div class="panel-head">
+        <h2 id="add-h">Information for the bot</h2>
+        <p>Staff write facts here. Nothing reaches the bot until it is approved, and an approved fact can be hidden again. Newer approved facts win over the knowledge base when they conflict.</p>
+      </div>
+      <form id="addition-form" class="addition-form">
+        <label class="sr-only" for="addition-text">New information for the bot</label>
+        <textarea id="addition-text" rows="3" maxlength="2000" placeholder="For example: From next week the shop opens at 7.30 on Mondays." required></textarea>
+        <button type="submit" class="send">Add to the queue</button>
+      </form>
+      <p id="addition-error" class="form-error" hidden></p>
+      <ol id="additions" class="additions"></ol>
+    </section>
+
+    <section class="panel desk wide" aria-labelledby="preview-h">
+      <div class="panel-head">
+        <h2 id="preview-h">What the bot sees right now</h2>
+        <p>The system prompt for this session, section by section, and the tools the model may call. The cached section is identical on every request; everything after it may change without touching the cache.</p>
+      </div>
+      <div id="preview" class="preview"></div>
+    </section>
+  </main>
+
+  <footer>
+    Built from a customer advisor I run in production at a car repair shop. Nothing on this page refers to a real business; session data is deleted after 24 hours.
+  </footer>
+
+  <script src="staff.js" type="module"></script>
+</body>
+</html>

@@ -4,17 +4,28 @@
 
 import type { Booking, ContactRequest } from '../booking/types.ts';
 
-/** One line in the "behind the counter" log: what the agent did and how it went. */
+/** One line in the staff log: what the agent did and how it went. */
 export interface AgentEvent {
   at: string;
-  kind: 'lookup' | 'booking' | 'request' | 'blocked' | 'error';
+  kind: 'lookup' | 'booking' | 'request' | 'blocked' | 'error' | 'feedback';
   text: string;
 }
 
-/** One completed turn of the conversation, text only. */
+/** One completed turn of the conversation, text only. Assistant turns carry their message id. */
 export interface HistoryItem {
   role: 'user' | 'assistant';
   text: string;
+  mid?: string;
+}
+
+export type AdditionStatus = 'pending' | 'approved' | 'hidden';
+
+/** A fact the staff wrote for the bot. Only approved ones reach the prompt. */
+export interface Addition {
+  id: string;
+  text: string;
+  status: AdditionStatus;
+  createdAt: string;
 }
 
 export interface SessionState {
@@ -23,10 +34,13 @@ export interface SessionState {
   events: AgentEvent[];
   /** The last turns, appended in user/assistant pairs by the agent. */
   transcript: HistoryItem[];
+  additions: Addition[];
+  /** Thumbs by message id. */
+  feedback: Record<string, 'up' | 'down'>;
 }
 
 export function emptySession(): SessionState {
-  return { bookings: [], requests: [], events: [], transcript: [] };
+  return { bookings: [], requests: [], events: [], transcript: [], additions: [], feedback: {} };
 }
 
 export const SESSION_TTL_SEC = 24 * 60 * 60;
@@ -84,6 +98,10 @@ export interface KvLike {
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
 }
 
+function arrayOf<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
 /**
  * KV is eventually consistent and has no atomic increment. For a demo the
  * counters may be off by a request or two under concurrent load; the
@@ -103,10 +121,12 @@ export class KvStore implements SessionStore, Counter {
       const parsed = JSON.parse(raw) as Partial<SessionState>;
       return {
         // A booking written by an older build lacks the minute fields; drop it rather than crash the board.
-        bookings: Array.isArray(parsed.bookings) ? parsed.bookings.filter((b) => typeof b.startMin === 'number') : [],
-        requests: Array.isArray(parsed.requests) ? parsed.requests : [],
-        events: Array.isArray(parsed.events) ? parsed.events : [],
-        transcript: Array.isArray(parsed.transcript) ? parsed.transcript : [],
+        bookings: arrayOf<Booking>(parsed.bookings).filter((b) => typeof b.startMin === 'number'),
+        requests: arrayOf(parsed.requests),
+        events: arrayOf(parsed.events),
+        transcript: arrayOf(parsed.transcript),
+        additions: arrayOf(parsed.additions),
+        feedback: parsed.feedback && typeof parsed.feedback === 'object' ? parsed.feedback : {},
       };
     } catch {
       return emptySession();

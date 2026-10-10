@@ -6,12 +6,12 @@ import { ApiUnavailable, runTurn } from '../../src/agent/run.ts';
 import { invalidRequestText, rateLimitedText, serverErrorText, switchedOffText, unavailableText } from '../../src/agent/texts.ts';
 import { calendar, json, modelFor, storeFor, type Env } from '../../src/app.ts';
 import type { Lang } from '../../src/booking/types.ts';
-import { parseChatBody } from '../../src/guard/input.ts';
+import { MAX_IMAGES, MAX_IMAGE_BYTES, parseChatBody } from '../../src/guard/input.ts';
 import { checkRate, visitorKey } from '../../src/guard/rateLimit.ts';
 import { emptySession } from '../../src/store/store.ts';
 
-/** A message is 1000 characters; anything near this size is not a chat message. */
-export const MAX_BODY_BYTES = 16 * 1024;
+/** Two pictures as base64 plus a message; anything larger is not a chat turn. */
+export const MAX_BODY_BYTES = MAX_IMAGES * Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 64 * 1024;
 
 function errorResponse(err: unknown, lang: Lang): Response {
   if (err instanceof ApiUnavailable && err.kind === 'transient') {
@@ -48,8 +48,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const verdict = await checkRate(store, await visitorKey(ip, env.RATE_SALT ?? 'demo'), now);
   if (!verdict.ok) return json({ code: 'rate', scope: verdict.scope, text: rateLimitedText(body.lang, verdict.scope) }, 429);
 
-  // Note: KV has no compare-and-set. Two tabs sharing one session id (a
-  // duplicated tab) can race this read-modify-write; the demo accepts that.
+  // Note: KV has no compare-and-set. Two tabs sharing one session id can
+  // race this read-modify-write; the demo accepts that.
   const state = await pendingState;
   const eventsBefore = state.events.length;
   let turn;
@@ -61,5 +61,5 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return errorResponse(err, body.lang);
   }
   await store.put(body.sessionId, state);
-  return json({ reply: turn.reply, ref: turn.ref ?? null, board: buildBoard(now, state, body.lang, calendar) });
+  return json({ reply: turn.reply, mid: turn.mid, ref: turn.ref ?? null, board: buildBoard(now, state, body.lang, calendar) });
 };

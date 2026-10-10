@@ -12,7 +12,7 @@ import { WORK_MAX, WORK_MIN } from '../booking/duration.ts';
 import { mechanicName, suitableMechanics } from '../booking/mechanics.ts';
 import { RULES, cleanText } from '../booking/rules.ts';
 import { ISSUE_TYPES, POWERTRAINS, type Booking, type ContactRequest, type Lang, type Slot } from '../booking/types.ts';
-import { WORKSHOP } from '../knowledge/workshop.ts';
+import { BUSINESS } from '../knowledge/business.ts';
 import type { AgentEvent, SessionState } from '../store/store.ts';
 
 type BetaTool = Anthropic.Beta.Messages.BetaTool;
@@ -143,7 +143,7 @@ export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcom
     return refuse(
       ctx,
       `Lookup refused: no mechanic does ${issue} for powertrain "${powertrain}".`,
-      `No mechanic does this job for this powertrain. Offer a contact request or the phone number ${WORKSHOP.phone}.`,
+      `No technician does this job for this powertrain. Offer a contact request or the phone number ${BUSINESS.phone}.`,
     );
   }
   const calendar = ctx.calendar(ctx.now, ctx.state.bookings);
@@ -168,7 +168,7 @@ export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcom
     return refuse(
       ctx,
       `Lookup refused: ${mechanicId} does not do ${issue}.`,
-      `Mechanic "${mechanicId}" does not do this job. Suitable: ${suitable.map((m) => m.id).join(', ')}.`,
+      `Technician "${mechanicId}" does not do this job. Suitable: ${suitable.map((m) => m.id).join(', ')}.`,
     );
   }
   const slots = calendar.freeSlots(mechanic.id, workMin, window.from, window.to, 20);
@@ -185,7 +185,7 @@ export function createBookingTool(input: RawInput, ctx: ToolContext): ToolOutcom
     return refuse(
       ctx,
       `Second booking refused: ${existing.ref} already exists in this conversation.`,
-      `A booking already exists in this conversation (reference ${existing.ref}). Do not make another one; changes go by phone ${WORKSHOP.phone}.`,
+      `A booking already exists in this conversation (reference ${existing.ref}). Do not make another one; changes go by phone ${BUSINESS.phone}.`,
     );
   }
   const result = createBooking(input, ctx.calendar(ctx.now, ctx.state.bookings), ctx.now);
@@ -200,7 +200,7 @@ export function createBookingTool(input: RawInput, ctx: ToolContext): ToolOutcom
   const mechanic = mechanicName(b.mechanicId);
   record(ctx, 'booking', `Booked ${mechanic}, ${label}, ${b.issueType} ${b.workMin} min, ${b.vehicle}. Reference ${b.ref}.`);
   return done(
-    `Booking confirmed. Reference ${b.ref}. Mechanic ${mechanic}. Start ${label}. Tell the customer the reference, the mechanic and the start time, and that changes and cancellations go by phone ${WORKSHOP.phone}.`,
+    `Booking confirmed. Reference ${b.ref}. Technician ${mechanic}. Start ${label}. Tell the customer the reference, the technician and the start time, and that changes and cancellations go by phone ${BUSINESS.phone}.`,
   );
 }
 
@@ -220,7 +220,7 @@ export function sendContactRequestTool(input: RawInput, ctx: ToolContext): ToolO
   ctx.turn.request = r;
   record(ctx, 'request', `Contact request sent for ${r.vehicle}, ${r.issueType}. Reference ${r.ref}. Staff will call back.`);
   return done(
-    `Contact request sent. Reference ${r.ref}. Tell the customer the reference and that the time is not confirmed yet: staff will call back. Urgent matters by phone ${WORKSHOP.phone}.`,
+    `Contact request sent. Reference ${r.ref}. Tell the customer the reference and that the time is not confirmed yet: staff will call back. Urgent matters by phone ${BUSINESS.phone}.`,
   );
 }
 

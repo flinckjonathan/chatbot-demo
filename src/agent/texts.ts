@@ -4,10 +4,10 @@
 // no apologies, no dashes as punctuation.
 
 import type { Lang } from '../booking/types.ts';
-import { WORKSHOP } from '../knowledge/workshop.ts';
+import { BUSINESS } from '../knowledge/business.ts';
 
 function callUs(lang: Lang): string {
-  return `${WORKSHOP.phone} (${WORKSHOP.hours[lang]})`;
+  return `${BUSINESS.phone} (${BUSINESS.hours[lang]})`;
 }
 
 export function refusalText(lang: Lang): string {
@@ -21,18 +21,18 @@ export function refusalText(lang: Lang): string {
 /** The booking exists but the model did not produce a closing sentence. */
 export function bookingFallbackText(lang: Lang, ref: string, when: string): string {
   return {
-    fi: `Varaus on tehty: ${when}, viite ${ref}. Muutokset ja peruutukset puhelimitse ${WORKSHOP.phone}.`,
-    sv: `Bokningen är gjord: ${when}, referens ${ref}. Ändringar och avbokningar per telefon ${WORKSHOP.phone}.`,
-    en: `Your booking is confirmed: ${when}, reference ${ref}. Changes and cancellations by phone ${WORKSHOP.phone}.`,
+    fi: `Varaus on tehty: ${when}, viite ${ref}. Muutokset ja peruutukset puhelimitse ${BUSINESS.phone}.`,
+    sv: `Bokningen är gjord: ${when}, referens ${ref}. Ändringar och avbokningar per telefon ${BUSINESS.phone}.`,
+    en: `Your booking is confirmed: ${when}, reference ${ref}. Changes and cancellations by phone ${BUSINESS.phone}.`,
   }[lang];
 }
 
 /** The contact request exists but the model did not produce a closing sentence. */
 export function requestFallbackText(lang: Lang, ref: string): string {
   return {
-    fi: `Yhteydenottopyyntösi on lähetetty, viite ${ref}. Huoltoaikaa ei ole vielä vahvistettu. Otamme sinuun yhteyttä. Kiireellisissä asioissa soita ${WORKSHOP.phone}.`,
-    sv: `Din förfrågan har skickats, referens ${ref}. Servicetiden är inte bekräftad ännu. Vi kontaktar dig. I brådskande ärenden, ring ${WORKSHOP.phone}.`,
-    en: `Your contact request has been sent, reference ${ref}. The service time is not confirmed yet. We will contact you. For urgent matters, call ${WORKSHOP.phone}.`,
+    fi: `Yhteydenottopyyntösi on lähetetty, viite ${ref}. Huoltoaikaa ei ole vielä vahvistettu. Otamme sinuun yhteyttä. Kiireellisissä asioissa soita ${BUSINESS.phone}.`,
+    sv: `Din förfrågan har skickats, referens ${ref}. Servicetiden är inte bekräftad ännu. Vi kontaktar dig. I brådskande ärenden, ring ${BUSINESS.phone}.`,
+    en: `Your contact request has been sent, reference ${ref}. The service time is not confirmed yet. We will contact you. For urgent matters, call ${BUSINESS.phone}.`,
   }[lang];
 }
 
@@ -82,9 +82,9 @@ export function switchedOffText(lang: Lang): string {
 /** The request could not be used (HTTP 400 or 413). */
 export function invalidRequestText(lang: Lang): string {
   return {
-    fi: 'Viestiä ei voitu lähettää. Lataa sivu uudelleen ja yritä lyhyemmällä viestillä.',
-    sv: 'Meddelandet kunde inte skickas. Ladda om sidan och försök med ett kortare meddelande.',
-    en: 'The message could not be sent. Reload the page and try a shorter message.',
+    fi: 'Viestiä ei voitu lähettää. Tarkista kuvat (enintään kaksi, 3 Mt) ja yritä lyhyemmällä viestillä.',
+    sv: 'Meddelandet kunde inte skickas. Kontrollera bilderna (högst två, 3 MB) och försök med ett kortare meddelande.',
+    en: 'The message could not be sent. Check the pictures (at most two, 3 MB) and try a shorter message.',
   }[lang];
 }
 

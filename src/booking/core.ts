@@ -111,7 +111,7 @@ export function createBooking(input: RawInput, calendar: Calendar, now: Date): B
   const suitable = suitableMechanics(issue, powertrain);
   if (!suitable.some((m) => m.id === mechanicId)) {
     const ids = suitable.map((m) => m.id).join(', ') || 'none';
-    return { state: 'rejected', field: 'mechanic', message: `Mechanic "${mechanicId}" does not do this job. Suitable mechanic ids: ${ids}.` };
+    return { state: 'rejected', field: 'mechanic', message: `Technician "${mechanicId}" does not do this job. Suitable ids: ${ids}.` };
   }
 
   const startIso = typeof input.start === 'string' ? input.start : '';

@@ -6,7 +6,7 @@ import { blockEnd } from '../src/booking/duration.ts';
 import { NOW, bookingInput, firstStart } from './fixtures.ts';
 
 const cal = new MockCalendar(NOW);
-const good = bookingInput({ name: 'Maija Meikäläinen', rego: 'abc-123', make_model: 'Skoda Octavia', powertrain: 'diesel', start: firstStart('petri', 120) });
+const good = bookingInput({ name: 'Maija Meikäläinen', rego: 'abc-123', make_model: 'Skoda Octavia', powertrain: 'diesel', start: firstStart('service', 120) });
 
 function rejected(input: RawInput): string {
   const r = createBooking(input, cal, NOW);
@@ -21,7 +21,7 @@ test('a complete, confirmed request is booked', () => {
   assert.match(r.booking.ref, /^B-[A-Z2-9]{5}$/);
   assert.equal(r.booking.vehicle, 'Skoda Octavia ABC-123');
   assert.equal(r.booking.workMin, 120);
-  assert.equal(r.booking.mechanicId, 'petri');
+  assert.equal(r.booking.mechanicId, 'service');
   assert.equal(r.booking.start, good.start);
   assert.equal(r.booking.endMin, blockEnd(r.booking.startMin, 120));
 });
@@ -35,7 +35,7 @@ test('every missing piece is reported as the right field', () => {
   assert.equal(rejected({ ...good, rego: '', make_model: '' }), 'vehicle');
   assert.equal(rejected({ ...good, issue_type: 'wheels' }), 'issue');
   assert.equal(rejected({ ...good, description: 'short' }), 'description');
-  assert.equal(rejected({ ...good, mechanic_id: 'aino' }), 'mechanic');
+  assert.equal(rejected({ ...good, mechanic_id: 'hv' }), 'mechanic');
   assert.equal(rejected({ ...good, start: 'tomorrow at ten' }), 'slot');
 });
 
@@ -57,8 +57,8 @@ test('parseJob owns the work time coercion', () => {
 
 test('an electric car needs the high-voltage mechanic for repairs', () => {
   const ev = { ...good, powertrain: 'ev', issue_type: 'repair', description: 'Charging stops at 80 percent' };
-  assert.equal(rejected({ ...ev, mechanic_id: 'petri' }), 'mechanic');
-  const r = createBooking({ ...ev, mechanic_id: 'aino', start: firstStart('aino', 120) }, cal, NOW);
+  assert.equal(rejected({ ...ev, mechanic_id: 'service' }), 'mechanic');
+  const r = createBooking({ ...ev, mechanic_id: 'hv', start: firstStart('hv', 120) }, cal, NOW);
   assert.equal(r.state, 'booked');
 });
 

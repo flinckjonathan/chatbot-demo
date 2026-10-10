@@ -16,18 +16,18 @@ test('without a mechanic the lookup lists every suitable mechanic with an ISO ti
   const out = getAvailableTimes(LOOKUP_ALL, c);
   assert.equal(out.refused, false);
   assert.match(out.text, /Work time 120 min/);
-  assert.match(out.text, /petri \(Petri Lehto/);
-  assert.match(out.text, /sami \(Sami Kuusela/);
-  assert.doesNotMatch(out.text, /aino/);
+  assert.match(out.text, /service \(Service technician/);
+  assert.match(out.text, /diag \(Diagnostics technician/);
+  assert.doesNotMatch(out.text, /hv/);
   assert.match(out.text, /\[2026-10-\d{2}T\d{2}:\d{2}:00\+03:00\]/);
   assert.deepEqual(c.turn.events.map((e) => e.kind), ['lookup']);
 });
 
 test('a mechanic who does not do the job is a refusal for the model and a blocked event', () => {
   const c = ctx();
-  const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'ac', mechanic_id: 'aino' }, c);
+  const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'ac', mechanic_id: 'hv' }, c);
   assert.equal(out.refused, true);
-  assert.match(out.text, /^ERROR: Mechanic "aino" does not do this job/);
+  assert.match(out.text, /^ERROR: Technician "hv" does not do this job/);
   assert.equal(c.turn.events[0]?.kind, 'blocked');
 });
 
@@ -40,22 +40,22 @@ test('tyre jobs are refused with the phone-only wording', () => {
 
 test('an electric repair only offers the high-voltage mechanic', () => {
   const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'repair', powertrain: 'ev' }, ctx());
-  assert.match(out.text, /aino/);
-  assert.doesNotMatch(out.text, /petri/);
+  assert.match(out.text, /hv/);
+  assert.doesNotMatch(out.text, /service/);
 });
 
 test('a from_date inside the window moves the lookup, one outside is ignored', () => {
   const c = ctx();
-  const later = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'petri', from_date: '2026-10-20' }, c);
+  const later = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'service', from_date: '2026-10-20' }, c);
   assert.match(later.text, /\[2026-10-2\d/);
   assert.doesNotMatch(later.text, /\[2026-10-1\d/);
-  const ignored = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'petri', from_date: '2027-01-01' }, c);
+  const ignored = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'service', from_date: '2027-01-01' }, c);
   assert.match(ignored.text, /\[2026-10-1\d/);
 });
 
 test('only one booking per conversation', () => {
   const c = ctx();
-  const times = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'petri' }, c);
+  const times = getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'service' }, c);
   const start = times.text.match(/\[([^\]]+)\]/)![1]!;
   const input = bookingInput({ start });
   const first = createBookingTool(input, c);

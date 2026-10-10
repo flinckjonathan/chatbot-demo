@@ -52,7 +52,7 @@ export function hash32(s: string): number {
  * Some mechanics have no free time for the first days. This makes the
  * "earliest time differs per mechanic" path visible in every demo session.
  */
-const BOOKED_OUT_DAYS: Readonly<Record<string, number>> = { aino: 3 };
+const BOOKED_OUT_DAYS: Readonly<Record<string, number>> = { hv: 3 };
 
 interface Block {
   mechanicId: string;

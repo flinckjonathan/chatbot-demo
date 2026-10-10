@@ -16,6 +16,7 @@ import { TOOLS, executeTool, type ToolContext, type TurnLog } from './tools.ts';
 type Params = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
 type Message = Anthropic.Beta.Messages.BetaMessage;
 type MessageParam = Anthropic.Beta.Messages.BetaMessageParam;
+type ContentBlockParam = Anthropic.Beta.Messages.BetaContentBlockParam;
 type ToolResult = Anthropic.Beta.Messages.BetaToolResultBlockParam;
 
 /** The one method of the SDK the agent uses, so tests can hand in a fake. */
@@ -47,9 +48,18 @@ export class ApiUnavailable extends Error {
 
 export interface TurnResult {
   reply: string;
+  /** Message id the browser sends back with a thumbs vote. */
+  mid: string;
   /** Reference of a booking or request created during this turn. */
   ref?: string;
   rounds: number;
+}
+
+/** Eight hex characters, like the production log's message ids. */
+export function messageId(): string {
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function textOf(message: Message): string {
@@ -80,17 +90,34 @@ function fallbackText(turn: TurnLog, lang: ChatBody['lang']): string | null {
   return null;
 }
 
+/** The new user turn: pictures first, then the text, as the API prefers. */
+function userContent(body: ChatBody): string | ContentBlockParam[] {
+  if (body.images.length === 0) return body.message;
+  const blocks: ContentBlockParam[] = body.images.map((img) => ({
+    type: 'image',
+    source: { type: 'base64', media_type: img.mediaType, data: img.data },
+  }));
+  blocks.push({ type: 'text', text: body.message || '(the customer sent a picture without text)' });
+  return blocks;
+}
+
+/** What the transcript keeps of the user turn: the text and a note that pictures were sent. */
+function transcriptText(body: ChatBody): string {
+  const note = body.images.length ? ` (sent ${body.images.length} picture${body.images.length > 1 ? 's' : ''})` : '';
+  return `${body.message}${note}`.trim().slice(0, MAX_TRANSCRIPT_CHARS);
+}
+
 /**
  * Runs one turn against `state`, which is mutated in place: bookings and
  * requests as the tools create them, the log and the transcript at the end.
  * The log is folded in even when the turn fails, so the board shows what
- * happened before the failure.
+ * happened before the failure. Pictures are sent to the model and never stored.
  */
 export async function runTurn(body: ChatBody, state: SessionState, now: Date, deps: TurnDeps): Promise<TurnResult> {
   const turn: TurnLog = { events: [] };
   const ctx: ToolContext = { now, lang: body.lang, state, calendar: deps.calendar, turn };
   const messages: MessageParam[] = state.transcript.map((h) => ({ role: h.role, content: h.text }));
-  messages.push({ role: 'user', content: body.message });
+  messages.push({ role: 'user', content: userContent(body) });
 
   const params: Params = {
     model: MODEL,
@@ -117,11 +144,12 @@ export async function runTurn(body: ChatBody, state: SessionState, now: Date, de
   };
 
   const finish = (reply: string, rounds: number): TurnResult => {
+    const mid = messageId();
     state.transcript.push(
-      { role: 'user', text: body.message.slice(0, MAX_TRANSCRIPT_CHARS) },
-      { role: 'assistant', text: reply.slice(0, MAX_TRANSCRIPT_CHARS) },
+      { role: 'user', text: transcriptText(body) },
+      { role: 'assistant', text: reply.slice(0, MAX_TRANSCRIPT_CHARS), mid },
     );
-    return { reply, ref: turn.booking?.ref ?? turn.request?.ref, rounds };
+    return { reply, mid, ref: turn.booking?.ref ?? turn.request?.ref, rounds };
   };
 
   let rounds = 0;

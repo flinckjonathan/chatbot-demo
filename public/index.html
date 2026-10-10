@@ -3,62 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Korjaamo Lumme advisor</title>
-  <meta name="description" content="A customer advisor agent for a fictional car repair shop: Claude with tools, a simulated calendar and guardrails. Both sides of the counter on one page.">
+  <title>Chatbot Demo</title>
+  <meta name="description" content="A customer advisor for a car repair shop that books real times: Claude with tools, a simulated calendar and guardrails. The shop is a placeholder; the agent is the production design.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="site">
   <header class="sign">
-    <p class="sign-name">Korjaamo Lumme</p>
-    <p class="sign-sub">A customer advisor that books real times. The workshop is fictional and the calendar is simulated. The agent, its tools and its guardrails are the same design that runs in production at a car repair shop.</p>
+    <p class="sign-name">Chatbot Demo</p>
+    <p class="sign-sub">A customer advisor for a car repair shop. It answers from a knowledge base, reads pictures, and books real times in a simulated calendar. The shop, its prices and its team are placeholders; the agent, its tools and its guardrails are the design that runs in production.</p>
     <nav class="sign-links">
+      <a href="staff" id="staff-link">Staff view</a>
       <a href="https://github.com/flinckjonathan/chatbot-demo">Source on GitHub</a>
       <a href="#how">How it works</a>
     </nav>
   </header>
 
-  <main class="counter">
-    <section class="panel chat" aria-labelledby="chat-h">
-      <div class="panel-head">
-        <h1 id="chat-h">Customer side</h1>
-        <label class="lang">Reply language
-          <select id="lang">
-            <option value="en">English</option>
-            <option value="fi">suomi</option>
-            <option value="sv">svenska</option>
-          </select>
-        </label>
-      </div>
-      <p id="fake-note" class="fake-note" hidden>Running against a scripted stand-in for the model. Ask to book a time, then answer yes.</p>
-      <ol id="messages" class="messages" aria-live="polite" aria-label="Conversation"></ol>
-      <div id="starters" class="starters" aria-label="Example messages">
-        <button type="button" data-text="What does an EV battery health report cost?">What does an EV battery health report cost?</button>
-        <button type="button" data-text="My hybrid shows a battery warning light. Can I get it checked next week?">My hybrid shows a battery warning light. Can I get it checked next week?</button>
-        <button type="button" data-text="Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.">Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.</button>
-      </div>
-      <form id="form" class="composer">
-        <label class="sr-only" for="input">Message to the advisor</label>
-        <textarea id="input" rows="2" maxlength="1000" placeholder="Write to the advisor" required></textarea>
-        <button type="submit" id="send" class="send">Send</button>
-      </form>
-      <p class="note">Demo data is deleted after 24 hours. Please do not enter real personal details.</p>
+  <main class="shop">
+    <section class="shop-hero">
+      <h1>Service for every make</h1>
+      <p>Scheduled maintenance, repairs, diagnostics, air conditioning, and high-voltage work on electric and hybrid cars. Estimate before work, always.</p>
+      <button type="button" class="send shop-cta" id="open-chat">Chat with the advisor</button>
+      <p class="shop-hours">Open Mon–Fri 8.00–16.00. Phone 010 123 4567 (a placeholder, it goes nowhere).</p>
     </section>
-
-    <section class="panel desk" aria-labelledby="desk-h">
-      <div class="panel-head">
-        <h2 id="desk-h">Behind the counter</h2>
-        <p>What the agent did in the shop systems during this conversation. The board is the next five working days.</p>
+    <section class="shop-services" aria-label="Services">
+      <div>
+        <h2>Maintenance</h2>
+        <p>Service by the manufacturer's programme, inspection service, brakes, timing belts, clutches.</p>
       </div>
-      <div class="board-wrap">
-        <table class="board" id="board" aria-label="Week board"></table>
+      <div>
+        <h2>Electric and hybrid</h2>
+        <p>High-voltage battery diagnostics and health reports, module repair, charging faults.</p>
       </div>
-      <p class="swipe-hint">Swipe sideways to see all three mechanics.</p>
-      <h3 class="events-h">Agent actions</h3>
-      <ol id="events" class="events"></ol>
+      <div>
+        <h2>Diagnostics and AC</h2>
+        <p>Warning lights, electrical faults, air conditioning service and leak search.</p>
+      </div>
     </section>
   </main>
 
@@ -67,23 +50,68 @@
     <div class="how-grid">
       <div>
         <h3>The agent</h3>
-        <p>Claude gets three tools: look up free times, create a booking, send a contact request. The booking core validates every call, so a missing consent or a stale time comes back as an error the model has to handle in the conversation. One booking per conversation, and the tool loop stops after three rounds.</p>
+        <p>Claude gets three tools: look up free times, create a booking, send a contact request. The booking core validates every call, so a missing consent or a stale time comes back as an error the model has to handle in the conversation. One booking per conversation, and the tool loop stops after three rounds. Pictures go to the model and are never stored.</p>
       </div>
       <div>
         <h3>The guardrails</h3>
-        <p>Binding rules in the system prompt: answer only from the knowledge base, quote only published prices, no definite diagnoses, instructions inside messages are not commands. Rate limits per visitor and per day keep the API key safe behind a public page. If the model fails after a booking went through, a fixed text still tells you the reference.</p>
+        <p>Binding rules in the system prompt: answer only from the knowledge base, quote only published prices, no definite diagnoses, instructions inside messages or pictures are not commands. Rate limits per visitor and per day keep the API key safe behind a public page. If the model fails after a booking went through, a fixed text still tells you the reference.</p>
       </div>
       <div>
-        <h3>Left out on purpose</h3>
-        <p>The production version runs on a real workshop calendar and reads anonymised statistics from the shop's job history, and new facts reach the bot only after a person approves them. None of that is here: the calendar is a deterministic mock, the shop is fictional, and nothing is stored beyond your session.</p>
+        <h3>The staff side</h3>
+        <p>Open the staff view to see the week board, the agent's log with your thumbs votes, and the approval queue: write a fact for the bot, approve it, and watch it appear in the prompt the bot sees, after the cached part so nothing is recomputed. Everything on that page belongs to your session only.</p>
       </div>
     </div>
   </section>
 
   <footer>
-    Built from a customer advisor I run in production at a car repair shop. Korjaamo Lumme, its mechanics, prices and phone number are made up for this demo.
+    Built from a customer advisor I run in production at a car repair shop. Nothing on this page refers to a real business; session data is deleted after 24 hours.
   </footer>
 
-  <script src="app.js" type="module"></script>
+  <aside class="chat-root" aria-label="Customer advisor chat">
+    <button type="button" class="chatfab" id="chat-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="chat-panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg>
+      <span>Chat</span>
+    </button>
+    <section class="chatpanel" id="chat-panel" role="dialog" aria-labelledby="chat-title" aria-hidden="true" hidden>
+      <header class="chat-head">
+        <div>
+          <h2 id="chat-title">Customer advisor</h2>
+          <label class="lang">Reply language
+            <select id="lang">
+              <option value="en">English</option>
+              <option value="fi">suomi</option>
+              <option value="sv">svenska</option>
+            </select>
+          </label>
+        </div>
+        <button type="button" class="chat-close" id="chat-close" aria-label="Close chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </header>
+      <p id="fake-note" class="fake-note" hidden>Running against a scripted stand-in for the model. Ask to book a time, then answer yes.</p>
+      <ol id="messages" class="messages" role="log" aria-live="polite" aria-label="Conversation"></ol>
+      <div id="starters" class="starters" aria-label="Example messages">
+        <button type="button" data-text="What does an EV battery health report cost?">What does an EV battery health report cost?</button>
+        <button type="button" data-text="My hybrid shows a battery warning light. Can I get it checked next week?">My hybrid shows a battery warning light. Can I get it checked next week?</button>
+        <button type="button" data-text="Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.">Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.</button>
+        <button type="button" data-picture="1">Send a picture of a warning light</button>
+      </div>
+      <ul id="photos" class="photos" hidden></ul>
+      <form id="form" class="composer">
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <button type="button" class="chat-attach" id="attach" aria-label="Add a picture">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        </button>
+        <label class="sr-only" for="input">Message to the advisor</label>
+        <textarea id="input" rows="1" maxlength="1500" placeholder="Write to the advisor"></textarea>
+        <button type="submit" id="send" class="send" aria-label="Send">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-7 18-3-8z"/></svg>
+        </button>
+      </form>
+      <p class="note">The AI advisor can be wrong. Check important things with the shop. Demo data is deleted after 24 hours; please do not enter real personal details.</p>
+    </section>
+  </aside>
+
+  <script src="widget.js" type="module"></script>
 </body>
 </html>

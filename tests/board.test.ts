@@ -12,7 +12,7 @@ test('the board covers the next five working days from today', () => {
 
 test('a booking shows as a block in its cell and the log carries a workshop-time label', () => {
   const state = emptySession();
-  const start = firstStart('petri', 120);
+  const start = firstStart('service', 120);
   const r = createBooking(bookingInput({ start }), mockCalendarFactory(NOW, []), NOW);
   assert.equal(r.state, 'booked');
   if (r.state !== 'booked') return;
@@ -21,7 +21,7 @@ test('a booking shows as a block in its cell and the log carries a workshop-time
 
   const board = buildBoard(NOW, state, 'fi', mockCalendarFactory);
   assert.equal(board.days[0]?.label, 'ti 13.10.');
-  const cell = board.cells.find((c) => c.mechanicId === 'petri' && c.date === r.booking.date);
+  const cell = board.cells.find((c) => c.mechanicId === 'service' && c.date === r.booking.date);
   assert.ok(cell);
   assert.equal(cell.booked[0]?.ref, r.booking.ref);
   assert.match(cell.booked[0]?.start ?? '', /^\d{1,2}\.\d{2}$/);
