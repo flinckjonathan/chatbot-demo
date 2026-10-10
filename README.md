@@ -64,7 +64,7 @@ browser (public/)                Cloudflare Pages Function            Claude
 | Streaming | off | The production bot tried streaming and the customers preferred a complete answer; one JSON response also keeps the function simple |
 | `max_tokens` | 16000 | Thinking shares this budget with the answer; only used tokens are billed. A reply that still hits the ceiling gets a "cut short" line |
 
-A typical turn costs about one cent; a booking turn with two tool rounds about two to three cents. The daily cap bounds the worst case.
+A typical turn costs about one cent; a booking turn with two tool rounds about two to three cents. The daily cap bounds the worst case. Measured on 10 October 2026: a plain answer takes 5 to 10 seconds, a turn with a tool call 10 to 20 seconds, the first uncached turn up to 30 seconds.
 
 ## What is ported, mocked and left out
 
