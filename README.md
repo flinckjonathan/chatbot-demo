@@ -15,7 +15,8 @@ Live demo: https://chatbot-demo-9vq.pages.dev (staff view: https://chatbot-demo-
 - "What does an EV battery health report cost?" (a published price it may quote)
 - "My hybrid shows a battery warning light. Can I get it checked next week?" (safety rule, then a booking with the HV technician)
 - "Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123." (answers in Finnish, books with the service technician)
-- Send a picture of a dashboard warning light: the bot says what it sees and what it typically means, and points to the right technician.
+- Send a picture of a dashboard warning light, or click the sample picture under the chat: the bot says what it sees and what it typically means, and points to the right technician.
+- Watch the board next to the chat: the booking you make lands there, and the log shows every lookup, booking, refusal and thumbs vote.
 - Ask it to ignore its rules, or to change the price. Watch it decline, and watch the log stay empty.
 - Book a second time in the same conversation. The tool refuses and the refusal shows up in the log.
 - Open the staff view, write "From next week the shop opens at 7.30 on Mondays", approve it, and ask the bot about Monday hours. Hide it and ask again.

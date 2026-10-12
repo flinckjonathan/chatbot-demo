@@ -1,13 +1,16 @@
-// The chat widget: a button in the corner, a panel with the conversation,
-// pictures shrunk in the browser before they leave it, a thumbs vote under
-// every reply. The page talks to /api/chat and /api/feedback; every label
-// and every error sentence arrives ready-made from the server.
+// The chat: docked next to the week board on a wide screen, a button in
+// the corner on a phone. Pictures are shrunk in the browser before they
+// leave it, every reply gets a thumbs vote, and the board on the right
+// redraws from each reply. Every label and error sentence arrives
+// ready-made from the server.
 
+import { renderBoard } from './board.js';
 import { api, el, getLang, getSession, setLang } from './session.js';
 
 const MAX_PHOTOS = 2;
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
+const DOCKED = window.matchMedia('(min-width: 1100px)');
 
 const GREETING = {
   en: "Hi! I'm the customer advisor of this workshop. Ask about our services, describe a problem with your car, send a picture of a warning light, or book a time with one of our technicians.",
@@ -16,16 +19,39 @@ const GREETING = {
 };
 
 const STATUS = {
-  en: { typing: 'Writing', times: 'Looking up free times', book: 'Making the booking', thanks: 'Thanks for the feedback' },
-  fi: { typing: 'Kirjoittaa', times: 'Haen vapaita aikoja', book: 'Teen varausta', thanks: 'Kiitos palautteesta' },
-  sv: { typing: 'Skriver', times: 'Söker lediga tider', book: 'Gör bokningen', thanks: 'Tack för din respons' },
+  en: {
+    typing: 'Writing',
+    times: 'Looking up free times',
+    book: 'Making the booking',
+    thanks: 'Thanks for the feedback',
+    notPicture: 'That file could not be read as a picture.',
+    sampleFailed: 'The sample picture could not be loaded. Attach one of your own instead.',
+    offline: 'No connection to the server.',
+  },
+  fi: {
+    typing: 'Kirjoittaa',
+    times: 'Haen vapaita aikoja',
+    book: 'Teen varausta',
+    thanks: 'Kiitos palautteesta',
+    notPicture: 'Tiedostoa ei voitu lukea kuvana.',
+    sampleFailed: 'Esimerkkikuvaa ei voitu ladata. Liitä oma kuva.',
+    offline: 'Ei yhteyttä palvelimeen.',
+  },
+  sv: {
+    typing: 'Skriver',
+    times: 'Söker lediga tider',
+    book: 'Gör bokningen',
+    thanks: 'Tack för din respons',
+    notPicture: 'Filen kunde inte läsas som en bild.',
+    sampleFailed: 'Exempelbilden kunde inte laddas. Bifoga en egen bild.',
+    offline: 'Ingen kontakt med servern.',
+  },
 };
 
 const els = {
   fab: document.getElementById('chat-fab'),
   panel: document.getElementById('chat-panel'),
   close: document.getElementById('chat-close'),
-  open: document.getElementById('open-chat'),
   messages: document.getElementById('messages'),
   form: document.getElementById('form'),
   input: document.getElementById('input'),
@@ -36,7 +62,9 @@ const els = {
   lang: document.getElementById('lang'),
   starters: document.getElementById('starters'),
   fakeNote: document.getElementById('fake-note'),
-  staffLink: document.getElementById('staff-link'),
+  board: document.getElementById('board'),
+  events: document.getElementById('events'),
+  staffLinks: [document.getElementById('staff-link'), document.getElementById('staff-link-2')],
 };
 
 const session = getSession();
@@ -45,40 +73,43 @@ let started = false;
 let awaitingConfirm = false;
 /** Pictures of the message being written: { dataUrl } */
 let photos = [];
+/** Counts board renders, so a slow board fetch cannot overwrite a newer board from a reply. */
+let boardVersion = 0;
 
 const lang = () => els.lang.value;
 const t = (key) => (STATUS[lang()] || STATUS.en)[key];
 
 /* ---- panel ---- */
 
+/** Docked, the chat is a section of the page; undocked, it is a dialog the button opens. */
+function applyDockSemantics() {
+  if (DOCKED.matches) {
+    els.panel.removeAttribute('role');
+    els.panel.removeAttribute('aria-hidden');
+  } else {
+    els.panel.setAttribute('role', 'dialog');
+    els.panel.setAttribute('aria-hidden', String(els.panel.hidden));
+  }
+}
+
 function openPanel() {
   els.panel.hidden = false;
-  els.panel.setAttribute('aria-hidden', 'false');
   els.fab.setAttribute('aria-expanded', 'true');
   document.body.classList.add('chat-open');
+  applyDockSemantics();
   if (!started) {
     started = true;
     addLine('msg assistant', GREETING[lang()] || GREETING.en);
-    checkMode();
   }
-  els.input.focus({ preventScroll: true });
+  if (!DOCKED.matches) els.input.focus({ preventScroll: true });
 }
 
 function closePanel() {
   els.panel.hidden = true;
-  els.panel.setAttribute('aria-hidden', 'true');
   els.fab.setAttribute('aria-expanded', 'false');
   document.body.classList.remove('chat-open');
+  applyDockSemantics();
   els.fab.focus({ preventScroll: true });
-}
-
-async function checkMode() {
-  try {
-    const { ok, data } = await api(`/api/board?session=${encodeURIComponent(session)}&lang=${lang()}`);
-    if (ok) els.fakeNote.hidden = !data.fake;
-  } catch {
-    // Mode note is cosmetic.
-  }
 }
 
 /* ---- messages ---- */
@@ -136,7 +167,8 @@ async function sendVote(fb, mid, vote) {
   }
   fb.appendChild(el('span', 'feedback-thanks', t('thanks')));
   try {
-    await api('/api/feedback', { session, mid, vote });
+    const { ok } = await api('/api/feedback', { session, mid, vote });
+    if (ok) loadBoard();
   } catch {
     // A lost vote is not worth an error in the conversation.
   }
@@ -199,18 +231,37 @@ function renderPhotos() {
   });
 }
 
+/** Attaches what it can and returns how many pictures it added. */
 async function addFiles(files) {
+  let added = 0;
   for (const file of files) {
     if (photos.length >= MAX_PHOTOS) break;
     if (!file.type.startsWith('image/')) continue;
     try {
       photos.push({ dataUrl: await shrink(file) });
+      added++;
     } catch {
-      addLine('msg system', 'That file could not be read as a picture.');
+      addLine('msg system', t('notPicture'));
     }
   }
   renderPhotos();
-  els.input.focus({ preventScroll: true });
+  return added;
+}
+
+/** The sample warning light: fetched from the site, then treated like any attached picture. */
+async function useSample(path, text) {
+  if (busy) return;
+  try {
+    const res = await fetch(path);
+    const blob = await res.blob();
+    if (!res.ok || !blob.type.startsWith('image/')) throw new Error(`sample ${res.status} ${blob.type}`);
+    const added = await addFiles([new File([blob], 'warning-light.png', { type: blob.type })]);
+    if (added === 0 || busy) return;
+    els.input.value = text;
+    els.form.requestSubmit();
+  } catch {
+    addLine('msg system', t('sampleFailed'));
+  }
 }
 
 /* ---- sending ---- */
@@ -233,6 +284,7 @@ async function onSubmit(event) {
   renderPhotos();
   setBusy(true);
   els.input.value = '';
+  els.input.style.height = '';
   els.starters.hidden = true;
   addUserLine(text, pictures);
   const pending = addLine('pending', typingStatus(text));
@@ -248,15 +300,36 @@ async function onSubmit(event) {
     if (ok && typeof data.reply === 'string') {
       addReply(data.reply, data.mid);
       awaitingConfirm = /\?\s*$/.test(data.reply) && /(varaa|boka|book|confirm|vahvist|bekräft)/i.test(data.reply);
+      boardVersion++;
+      renderBoard(els.board, els.events, data.board, data.ref);
     } else {
-      addLine('msg system', typeof data.text === 'string' ? data.text : 'No connection to the server.');
+      addLine('msg system', typeof data.text === 'string' ? data.text : t('offline'));
+      // Lookups and refusals recorded before a failure are on the server already.
+      loadBoard();
     }
   } catch {
     pending.remove();
-    addLine('msg system', 'No connection to the server.');
+    addLine('msg system', t('offline'));
+    loadBoard();
   } finally {
     setBusy(false);
     els.input.focus({ preventScroll: true });
+  }
+}
+
+/* ---- board ---- */
+
+async function loadBoard() {
+  const version = boardVersion;
+  try {
+    const { ok, data } = await api(`/api/board?session=${encodeURIComponent(session)}&lang=${lang()}`);
+    if (!ok) return;
+    els.fakeNote.hidden = !data.fake;
+    // A reply rendered a newer board while this fetch was in flight: keep the newer one.
+    if (version !== boardVersion) return;
+    renderBoard(els.board, els.events, data.board, null);
+  } catch {
+    // The board is a view; the chat still works without it.
   }
 }
 
@@ -264,14 +337,19 @@ async function onSubmit(event) {
 
 function init() {
   els.lang.value = getLang();
-  els.lang.addEventListener('change', () => setLang(els.lang.value));
-  els.staffLink.href = `staff?session=${encodeURIComponent(session)}`;
+  els.lang.addEventListener('change', () => {
+    setLang(els.lang.value);
+    loadBoard();
+  });
+  for (const link of els.staffLinks) {
+    if (link) link.href = `staff?session=${encodeURIComponent(session)}`;
+  }
 
   els.fab.addEventListener('click', () => (els.panel.hidden ? openPanel() : closePanel()));
-  els.open.addEventListener('click', openPanel);
+  document.getElementById('open-chat').addEventListener('click', openPanel);
   els.close.addEventListener('click', closePanel);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !els.panel.hidden) closePanel();
+    if (e.key === 'Escape' && !els.panel.hidden && !DOCKED.matches) closePanel();
   });
 
   els.form.addEventListener('submit', onSubmit);
@@ -287,19 +365,29 @@ function init() {
   });
   els.attach.addEventListener('click', () => els.file.click());
   els.file.addEventListener('change', () => {
-    addFiles([...els.file.files]);
+    addFiles([...els.file.files]).then(() => els.input.focus({ preventScroll: true }));
     els.file.value = '';
   });
   els.starters.addEventListener('click', (e) => {
     const button = e.target.closest('button');
     if (!button) return;
-    if (button.dataset.picture) {
-      els.file.click();
+    if (button.dataset.sample) {
+      useSample(button.dataset.sample, button.dataset.text || '');
       return;
     }
     els.input.value = button.dataset.text;
     els.form.requestSubmit();
   });
+
+  // Docked on a wide screen: the conversation is the page, so it starts open.
+  applyDockSemantics();
+  if (DOCKED.matches) openPanel();
+  DOCKED.addEventListener('change', (e) => {
+    if (e.matches && els.panel.hidden) openPanel();
+    else if (!e.matches && !els.panel.hidden) closePanel();
+    else applyDockSemantics();
+  });
+  loadBoard();
 }
 
 init();

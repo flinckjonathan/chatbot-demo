@@ -39,7 +39,7 @@ Three adjectives: plain, specific, unhurried.
 Forbidden: em dash as punctuation, small-caps eyebrow labels, "X, not Y" sentences, invented names or numbers presented as real.
 
 ## Layout
-Customer site (index.html): sign, a short placeholder shop (hero, three services, hours), how it works, footer. The chat is a button in the corner that opens a 400 px panel; on phones the panel fills the screen.
+Customer page (index.html): sign, then two columns on a wide screen. Left the chat, open from the start, with four things to try (three questions and a sample warning-light picture). Right the week board and the agent's log, which redraw from every reply, so a booking lands on the board while the customer reads the confirmation. Under 1100 px the chat becomes a button in the corner that opens a 400 px panel, and under 620 px the panel fills the screen; the board sits under the sign. Then how it works, then the footer with the placeholder hours and phone.
 Staff page (staff.html): sign with the session line, two columns (week board and log, the approval queue), then the prompt preview full width. Stacks under 1100 px.
 
 Explicitly not on these pages:

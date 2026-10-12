@@ -2,9 +2,8 @@
 // additions, and the prompt preview. Everything is per session; the page
 // reloads its data after every action instead of guessing.
 
+import { renderBoard } from './board.js';
 import { api, el, getLang, getSession, newSession } from './session.js';
-
-const EMPTY_LOG = 'Nothing yet. The log fills when the agent looks up times, books, gets refused, or a customer votes on a reply.';
 
 const els = {
   sessionId: document.getElementById('session-id'),
@@ -22,65 +21,6 @@ const els = {
 
 let session = getSession();
 const lang = getLang();
-
-/* ---- board and log ---- */
-
-function renderBoard(board) {
-  if (!board) return;
-  const cells = new Map(board.cells.map((c) => [`${c.mechanicId}|${c.date}`, c]));
-
-  const thead = el('thead');
-  const headRow = el('tr');
-  headRow.appendChild(el('th', '', ''));
-  for (const m of board.mechanics) {
-    const th = el('th', '', m.name);
-    th.appendChild(el('span', 'mech-title', m.title));
-    headRow.appendChild(th);
-  }
-  thead.appendChild(headRow);
-
-  const tbody = el('tbody');
-  for (const day of board.days) {
-    const tr = el('tr');
-    const th = el('th', '', day.label);
-    th.scope = 'row';
-    tr.appendChild(th);
-    for (const m of board.mechanics) {
-      const cell = cells.get(`${m.id}|${day.date}`);
-      const td = el('td');
-      if (cell) {
-        for (const b of cell.booked) {
-          const block = el('span', 'block', `${b.start}–${b.end} `);
-          block.appendChild(el('span', 'ref', b.ref));
-          block.appendChild(el('small', '', b.label));
-          td.appendChild(block);
-        }
-        if (cell.free.length) {
-          const chips = el('div', 'chips');
-          for (const t of cell.free) chips.appendChild(el('span', 'free', t));
-          td.appendChild(chips);
-        } else if (!cell.booked.length) {
-          td.appendChild(el('span', 'none', 'full'));
-        }
-      }
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  }
-  els.board.replaceChildren(thead, tbody);
-
-  els.events.replaceChildren();
-  if (!board.events.length) els.events.appendChild(el('li', 'empty', EMPTY_LOG));
-  for (const e of board.events) {
-    const li = el('li', e.kind);
-    const time = el('time', '', e.time);
-    time.dateTime = e.at;
-    li.appendChild(time);
-    li.appendChild(el('span', 'text', e.text));
-    els.events.appendChild(li);
-  }
-  els.events.scrollTop = els.events.scrollHeight;
-}
 
 /* ---- additions ---- */
 
@@ -170,7 +110,7 @@ function renderPreview(preview) {
 
 async function loadBoard() {
   const { ok, data } = await api(`/api/board?session=${encodeURIComponent(session)}&lang=${lang}`);
-  if (ok) renderBoard(data.board);
+  if (ok) renderBoard(els.board, els.events, data.board, null);
 }
 
 async function loadAdditions() {

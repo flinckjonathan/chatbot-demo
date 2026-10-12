@@ -132,61 +132,6 @@ h3 {
   font-size: 18px;
 }
 
-/* The customer site. */
-
-.shop {
-  max-width: var(--max);
-  margin: 0 auto;
-  padding: 16px var(--gutter) 24px;
-}
-
-.shop-hero {
-  padding: 28px 28px 24px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
-.shop-hero h1 {
-  font-size: clamp(36px, 4.5vw, 56px);
-}
-
-.shop-hero p {
-  max-width: 60ch;
-  margin: 12px 0 0;
-}
-
-.shop-cta {
-  margin-top: 18px;
-  padding: 12px 22px;
-}
-
-.shop-hours {
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.shop-services {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--gutter);
-  margin-top: var(--gutter);
-}
-
-.shop-services div {
-  padding: 20px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
-.shop-services h2 {
-  font-size: 20px;
-}
-
-.shop-services p {
-  margin: 8px 0 0;
-  color: var(--muted);
-}
-
 /* Shared panel chrome. */
 
 .panel {
@@ -434,6 +379,59 @@ h3 {
   border-color: var(--ink);
 }
 
+.starter-picture {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.starter-picture img {
+  width: 40px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+/* On a wide screen the chat is the left column, open from the start. */
+
+@media (min-width: 1100px) {
+  .chat-root {
+    position: static;
+    min-width: 0;
+  }
+
+  .chatfab,
+  .chat-close,
+  .open-chat {
+    display: none;
+  }
+
+  .chatpanel,
+  .chatpanel[hidden] {
+    display: flex !important;
+    position: static;
+    width: auto;
+    max-width: none;
+    height: calc(100vh - 230px);
+    min-height: 560px;
+    max-height: 820px;
+    box-shadow: none;
+  }
+
+  /* A shorter sign on a wide screen, so the conversation starts above the fold. */
+  .sign {
+    padding-top: 24px;
+  }
+
+  .sign-name {
+    font-size: 72px;
+  }
+
+  .sign-sub {
+    max-width: 78ch;
+  }
+}
+
 .photos {
   display: flex;
   gap: 8px;
@@ -513,8 +511,10 @@ textarea {
   padding: 10px;
 }
 
-/* The staff page. */
+/* Both sides of the counter: the chat and the board on the customer page,
+   the board and the queue on the staff page. */
 
+.counter,
 .staff-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -522,6 +522,11 @@ textarea {
   max-width: var(--max);
   margin: 0 auto;
   padding: 16px var(--gutter) 32px;
+}
+
+.counter {
+  grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
+  align-items: start;
 }
 
 .staff-grid .wide {
@@ -822,20 +827,49 @@ footer {
   }
 }
 
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes blink {
   50% {
     opacity: 0.35;
   }
 }
 
-.sign,
-.shop,
-.staff-grid,
-.how {
-  animation: rise 0.6s var(--ease) both;
+@keyframes land {
+  0% {
+    background: var(--accent-soft);
+    color: var(--ink);
+    transform: scale(1.04);
+  }
+  100% {
+    background: var(--accent);
+    color: var(--on-accent);
+    transform: none;
+  }
 }
 
-.shop,
+.block.landed {
+  animation: land 1.2s var(--ease) backwards;
+}
+
+.sign,
+.staff-grid,
+.how {
+  animation: rise 0.6s var(--ease) backwards;
+}
+
+.counter {
+  animation: fade 0.6s var(--ease) backwards;
+}
+
+.counter,
 .staff-grid {
   animation-delay: 0.08s;
 }
@@ -846,7 +880,7 @@ footer {
 
 .chatpanel,
 .msg {
-  animation: rise 0.3s var(--ease) both;
+  animation: rise 0.3s var(--ease) backwards;
 }
 
 .pending {
@@ -864,14 +898,14 @@ footer {
 
 /* Narrow screens. */
 
-@media (max-width: 1100px) {
+@media (max-width: 1099.98px) {
+  .counter,
   .staff-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 900px) {
-  .shop-services,
   .how-grid {
     grid-template-columns: 1fr;
   }
