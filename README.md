@@ -124,6 +124,7 @@ npm run deploy
 
 ```
 public/           the customer site with the widget (index.html, widget.js), the staff page (staff.html, staff.js), shared session.js and styles.css; no build step
+public/fonts/     D-DIN 400 and 700 as woff2, SIL Open Font License alongside
 functions/api/    chat.ts, feedback.ts, additions.ts, preview.ts, board.ts: thin HTTP shells
 src/app.ts        composition root: which calendar, store and model the handlers use
 src/agent/        prompt.ts, tools.ts, run.ts, board.ts, preview.ts, texts.ts, fake.ts
