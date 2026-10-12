@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPreview } from '../src/agent/preview.ts';
 import { additionsBlock, promptSections } from '../src/agent/prompt.ts';
-import { MAX_ADDITIONS, addAddition, approvedAdditions, deleteAddition, setAdditionStatus } from '../src/staff/additions.ts';
+import { MAX_ADDITIONS, addAddition, approvedAdditions, deleteAddition, parseAdditionId, setAdditionStatus } from '../src/staff/additions.ts';
 import { emptySession } from '../src/store/store.ts';
 import { NOW } from './fixtures.ts';
 
@@ -42,6 +42,15 @@ test('additions are cleaned, bounded and deletable', () => {
   assert.equal(deleteAddition(state, first.id), false);
   assert.equal(state.additions.length, MAX_ADDITIONS - 1);
   assert.equal(approvedAdditions(state).length, 0);
+});
+
+test('addition ids only accept generated staff addition references', () => {
+  assert.equal(parseAdditionId('A-ABCDE'), 'A-ABCDE');
+  assert.equal(parseAdditionId('B-ABCDE'), '');
+  assert.equal(parseAdditionId('A-abcde'), '');
+  assert.equal(parseAdditionId('A-12345'), '');
+  assert.equal(parseAdditionId('A-IOLOS'), '');
+  assert.equal(parseAdditionId(42), '');
 });
 
 test('the preview mirrors the prompt sections and lists the tools', () => {

@@ -4,7 +4,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 RATE_SALT=change-me
 # Set to 1 to run the UI against a scripted fake model (no API calls, no cost).
 CHAT_FAKE=0
-# Message caps per visitor and for the whole demo per day (defaults 6 and 50).
+# Message caps per visitor and for the whole demo per day (defaults 6 and 50,
+# ceilings 50 and 1000 so a typo cannot remove the cost cap).
 # Raise the visitor cap for local work; production keeps the defaults.
-RATE_PER_VISITOR=100
+RATE_PER_VISITOR=50
 RATE_PER_DAY=500

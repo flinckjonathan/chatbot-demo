@@ -10,11 +10,16 @@ import type { Addition, AdditionStatus, SessionState } from '../store/store.ts';
 export const MAX_ADDITIONS = 20;
 export const MAX_ADDITION_CHARS = 2000;
 export const MIN_ADDITION_CHARS = 10;
+const ADDITION_ID = /^A-[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{5}$/;
 
 export const ADDITION_STATUSES: readonly AdditionStatus[] = ['pending', 'approved', 'hidden'];
 
 export function isAdditionStatus(v: unknown): v is AdditionStatus {
   return typeof v === 'string' && (ADDITION_STATUSES as readonly string[]).includes(v);
+}
+
+export function parseAdditionId(v: unknown): string {
+  return typeof v === 'string' && ADDITION_ID.test(v) ? v : '';
 }
 
 export type AddResult = { ok: true; addition: Addition } | { ok: false; error: string };

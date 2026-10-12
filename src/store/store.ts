@@ -57,6 +57,12 @@ export function trimSession(state: SessionState): void {
 export interface SessionStore {
   get(sessionId: string): Promise<SessionState>;
   put(sessionId: string, state: SessionState): Promise<void>;
+  /**
+   * Serializes read-modify-write updates within one isolate. KV cannot make
+   * this atomic across Cloudflare isolates, but every handler should still use
+   * this instead of open-coded get/put so same-isolate requests do not lose data.
+   */
+  update(sessionId: string, mutate: (state: SessionState) => boolean | Promise<boolean>): Promise<SessionState>;
 }
 
 export interface Counter {
@@ -64,9 +70,25 @@ export interface Counter {
   incr(key: string, ttlSec: number): Promise<number>;
 }
 
+type SessionMutator = (state: SessionState) => boolean | Promise<boolean>;
+
+function enqueueSessionUpdate(
+  chains: Map<string, Promise<SessionState>>,
+  sessionId: string,
+  run: () => Promise<SessionState>,
+): Promise<SessionState> {
+  const previous = chains.get(sessionId) ?? Promise.resolve(emptySession());
+  const next = previous.catch(() => emptySession()).then(run);
+  chains.set(sessionId, next);
+  return next.finally(() => {
+    if (chains.get(sessionId) === next) chains.delete(sessionId);
+  });
+}
+
 export class MemoryStore implements SessionStore, Counter {
   private sessions = new Map<string, SessionState>();
   private counters = new Map<string, { n: number; expires: number }>();
+  private sessionChains = new Map<string, Promise<SessionState>>();
   private readonly clock: () => number;
 
   constructor(clock: () => number = () => Date.now()) {
@@ -80,6 +102,16 @@ export class MemoryStore implements SessionStore, Counter {
 
   async put(sessionId: string, state: SessionState): Promise<void> {
     this.sessions.set(sessionId, structuredClone(state));
+  }
+
+  update(sessionId: string, mutate: SessionMutator): Promise<SessionState> {
+    return enqueueSessionUpdate(this.sessionChains, sessionId, async () => {
+      const state = await this.get(sessionId);
+      const save = await mutate(state);
+      trimSession(state);
+      if (save) await this.put(sessionId, state);
+      return structuredClone(state);
+    });
   }
 
   async incr(key: string, ttlSec: number): Promise<number> {
@@ -109,6 +141,7 @@ function arrayOf<T>(v: unknown): T[] {
  */
 export class KvStore implements SessionStore, Counter {
   private readonly kv: KvLike;
+  private readonly sessionChains = new Map<string, Promise<SessionState>>();
 
   constructor(kv: KvLike) {
     this.kv = kv;
@@ -135,6 +168,16 @@ export class KvStore implements SessionStore, Counter {
 
   async put(sessionId: string, state: SessionState): Promise<void> {
     await this.kv.put(`session:${sessionId}`, JSON.stringify(state), { expirationTtl: SESSION_TTL_SEC });
+  }
+
+  update(sessionId: string, mutate: SessionMutator): Promise<SessionState> {
+    return enqueueSessionUpdate(this.sessionChains, sessionId, async () => {
+      const state = await this.get(sessionId);
+      const save = await mutate(state);
+      trimSession(state);
+      if (save) await this.put(sessionId, state);
+      return structuredClone(state);
+    });
   }
 
   async incr(key: string, ttlSec: number): Promise<number> {

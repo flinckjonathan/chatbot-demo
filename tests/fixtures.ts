@@ -6,7 +6,7 @@ import type { RawInput } from '../src/booking/core.ts';
 import type { ChatBody } from '../src/guard/input.ts';
 
 export const NOW = fromLocal('2026-10-13', 10 * 60);
-export const SESSION = '123e4567-e89b-12d3-a456-426614174000';
+export const SESSION = '123e4567-e89b-42d3-a456-426614174000';
 
 /** A complete, confirmed create_booking input; override what the test is about. */
 export function bookingInput(overrides: RawInput = {}): RawInput {

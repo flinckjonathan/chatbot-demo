@@ -26,7 +26,7 @@ export interface ChatBody {
   images: ChatImage[];
 }
 
-export const SESSION_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+export const SESSION_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 const MAX_BASE64_CHARS = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
 
@@ -40,17 +40,23 @@ export function parseSessionId(v: unknown): string {
 
 /** Reads the image type from the first bytes, the way a file(1) call would. */
 export function sniffImageType(base64: string): ImageType | null {
-  let head: string;
+  let raw: string;
   try {
-    head = atob(base64.slice(0, 24));
+    raw = atob(base64.slice(0, 48));
   } catch {
     return null;
   }
-  const b = (i: number) => head.charCodeAt(i);
-  if (b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return 'image/jpeg';
-  if (b(0) === 0x89 && head.slice(1, 4) === 'PNG') return 'image/png';
-  if (head.slice(0, 4) === 'GIF8') return 'image/gif';
-  if (head.slice(0, 4) === 'RIFF' && head.slice(8, 12) === 'WEBP') return 'image/webp';
+  const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  const has = (offset: number, values: readonly number[]): boolean =>
+    bytes.length >= offset + values.length && values.every((v, i) => bytes[offset + i] === v);
+  const ascii = (offset: number, text: string): boolean => has(offset, Array.from(text, (c) => c.charCodeAt(0)));
+
+  if (has(0, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (has(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+  if (ascii(0, 'GIF87a') || ascii(0, 'GIF89a')) return 'image/gif';
+  if (ascii(0, 'RIFF') && ascii(8, 'WEBP') && (ascii(12, 'VP8 ') || ascii(12, 'VP8L') || ascii(12, 'VP8X'))) {
+    return 'image/webp';
+  }
   return null;
 }
 
@@ -64,11 +70,56 @@ export function parseImages(v: unknown): ChatImage[] | null {
     if (typeof item !== 'string') return null;
     const data = item.startsWith('data:') ? item.slice(item.indexOf(',') + 1) : item;
     if (!data || data.length > MAX_BASE64_CHARS || !BASE64.test(data)) return null;
+    if (data.length % 4 === 1) return null;
     const mediaType = sniffImageType(data);
     if (!mediaType) return null;
     out.push({ mediaType, data });
   }
   return out;
+}
+
+export type JsonReadResult =
+  | { ok: true; value: unknown }
+  | { ok: false; reason: 'invalid' | 'too_large' };
+
+/** Reads JSON without trusting content-length; stops as soon as the byte cap is exceeded. */
+export async function readJsonLimited(request: Request, maxBytes: number): Promise<JsonReadResult> {
+  const length = request.headers.get('content-length');
+  if (length !== null) {
+    const bytes = Number(length);
+    if (!Number.isFinite(bytes) || bytes > maxBytes) return { ok: false, reason: 'too_large' };
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { ok: false, reason: 'invalid' };
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return { ok: false, reason: 'too_large' };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, reason: 'invalid' };
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return { ok: true, value: JSON.parse(new TextDecoder().decode(body)) };
+  } catch {
+    return { ok: false, reason: 'invalid' };
+  }
 }
 
 export type ParseResult = { ok: true; body: ChatBody } | { ok: false; error: string };

@@ -12,6 +12,8 @@ export interface RateLimits {
 }
 
 const DAY = 24 * 60 * 60;
+export const MAX_CONFIGURED_PER_VISITOR = 50;
+export const MAX_CONFIGURED_PER_DAY = 1000;
 
 export const DEFAULT_LIMITS: RateLimits = {
   perVisitor: { max: 6, windowSec: DAY },
@@ -20,11 +22,11 @@ export const DEFAULT_LIMITS: RateLimits = {
 
 /** The defaults, overridden by RATE_PER_VISITOR and RATE_PER_DAY when they are whole numbers. */
 export function limitsFrom(env: { RATE_PER_VISITOR?: string; RATE_PER_DAY?: string }): RateLimits {
-  const read = (value: string | undefined, fallback: number): number =>
-    value !== undefined && /^\d+$/.test(value) ? Number(value) : fallback;
+  const read = (value: string | undefined, fallback: number, cap: number): number =>
+    value !== undefined && /^\d+$/.test(value) ? Math.min(Number(value), cap) : fallback;
   return {
-    perVisitor: { max: read(env.RATE_PER_VISITOR, DEFAULT_LIMITS.perVisitor.max), windowSec: DAY },
-    global: { max: read(env.RATE_PER_DAY, DEFAULT_LIMITS.global.max), windowSec: DAY },
+    perVisitor: { max: read(env.RATE_PER_VISITOR, DEFAULT_LIMITS.perVisitor.max, MAX_CONFIGURED_PER_VISITOR), windowSec: DAY },
+    global: { max: read(env.RATE_PER_DAY, DEFAULT_LIMITS.global.max, MAX_CONFIGURED_PER_DAY), windowSec: DAY },
   };
 }
 

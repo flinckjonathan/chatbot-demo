@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanText } from '../src/booking/rules.ts';
-import { MAX_IMAGE_BYTES, parseChatBody, parseImages, parseLang, parseSessionId, sniffImageType } from '../src/guard/input.ts';
-import { checkRate, visitorKey } from '../src/guard/rateLimit.ts';
+import { MAX_IMAGE_BYTES, parseChatBody, parseImages, parseLang, parseSessionId, readJsonLimited, sniffImageType } from '../src/guard/input.ts';
+import { MAX_CONFIGURED_PER_DAY, MAX_CONFIGURED_PER_VISITOR, checkRate, limitsFrom, visitorKey } from '../src/guard/rateLimit.ts';
 import { MemoryStore } from '../src/store/store.ts';
 import { TINY_JPEG, TINY_PNG } from './fixtures.ts';
 
-const SESSION = '123E4567-E89B-12D3-A456-426614174000';
+const SESSION = '123E4567-E89B-42D3-A456-426614174000';
 
 test('parseChatBody cleans and normalises a request', () => {
   const r = parseChatBody({ session: SESSION, lang: 'fi', message: '  hello\u0007 there  ' });
@@ -28,6 +28,9 @@ test('pictures are typed by their bytes and a picture alone is a valid message',
   assert.equal(sniffImageType(TINY_PNG), 'image/png');
   assert.equal(sniffImageType(btoa('GIF89a....')), 'image/gif');
   assert.equal(sniffImageType(btoa('RIFF....WEBPVP8 ')), 'image/webp');
+  assert.equal(sniffImageType(btoa('GIF8not really')), null);
+  assert.equal(sniffImageType(btoa('\x89PNGnot enough')), null);
+  assert.equal(sniffImageType(btoa('RIFF....WEBPnope')), null);
   assert.equal(sniffImageType(btoa('<svg xmlns="http://www.w3.org/2000/svg"/>')), null);
   assert.equal(sniffImageType('not base64 at all!'), null);
 
@@ -68,8 +71,40 @@ test('lang falls back to English for anything that is not one of the three strin
 
 test('session ids are UUIDs, lower-cased', () => {
   assert.equal(parseSessionId(SESSION), SESSION.toLowerCase());
+  assert.equal(parseSessionId('123e4567-e89b-12d3-a456-426614174000'), '', 'non-v4 UUIDs are predictable enough to reject');
+  assert.equal(parseSessionId('123e4567-e89b-42d3-7456-426614174000'), '', 'the UUID variant bits must be RFC 4122');
   assert.equal(parseSessionId('not-a-uuid'), '');
   assert.equal(parseSessionId(42), '');
+});
+
+test('readJsonLimited rejects oversized bodies even without content-length', async () => {
+  const small = await readJsonLimited(new Request('https://example.test', { method: 'POST', body: '{"ok":true}' }), 20);
+  assert.deepEqual(small, { ok: true, value: { ok: true } });
+
+  const noLength = new Request('https://example.test', { method: 'POST', body: '{"text":"too long"}' });
+  assert.deepEqual(await readJsonLimited(noLength, 8), { ok: false, reason: 'too_large' });
+
+  const headerTooLarge = new Request('https://example.test', {
+    method: 'POST',
+    body: '{}',
+    headers: { 'content-length': '999' },
+  });
+  assert.deepEqual(await readJsonLimited(headerTooLarge, 8), { ok: false, reason: 'too_large' });
+  assert.deepEqual(await readJsonLimited(new Request('https://example.test', { method: 'POST', body: '{' }), 8), {
+    ok: false,
+    reason: 'invalid',
+  });
+});
+
+test('configured rate limits are capped to keep the public demo bounded', () => {
+  assert.deepEqual(limitsFrom({ RATE_PER_VISITOR: '12', RATE_PER_DAY: '123' }), {
+    perVisitor: { max: 12, windowSec: 86400 },
+    global: { max: 123, windowSec: 86400 },
+  });
+  assert.deepEqual(limitsFrom({ RATE_PER_VISITOR: '999999', RATE_PER_DAY: '999999' }), {
+    perVisitor: { max: MAX_CONFIGURED_PER_VISITOR, windowSec: 86400 },
+    global: { max: MAX_CONFIGURED_PER_DAY, windowSec: 86400 },
+  });
 });
 
 test('rate limits count per visitor first, then globally', async () => {
