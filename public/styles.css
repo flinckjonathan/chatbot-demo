@@ -154,9 +154,9 @@ h3 {
   font-size: 17px;
 }
 
-/* Both sides of the counter. */
+/* The chat and the board. */
 
-.counter,
+.main-grid,
 .staff-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -166,7 +166,7 @@ h3 {
   padding: 16px var(--gutter) 32px;
 }
 
-.counter {
+.main-grid {
   grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
   align-items: start;
 }
@@ -894,7 +894,7 @@ footer {
 /* Narrow screens. */
 
 @media (max-width: 1099.98px) {
-  .counter,
+  .main-grid,
   .staff-grid {
     grid-template-columns: minmax(0, 1fr);
   }

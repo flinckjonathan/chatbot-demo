@@ -4,7 +4,7 @@
 Subject: a customer advisor agent for a placeholder car repair shop that books real times in a simulated calendar, with the staff side on its own page.
 Audience: a hackathon reviewer or developer who opens the link, types one question or sends a picture, and wants to see what the agent actually did.
 Page's single job: have a conversation in the chat that ends in a booking, and see the booking land on the board beside it.
-Differentiator: both sides of the counter, nothing hidden.
+Differentiator: the customer's chat and the shop's week board side by side, nothing hidden.
 
 ## Direction
 Aesthetic: a job card. White paper, black ink, one steel blue for what matters. Hairlines instead of shadows.
@@ -55,5 +55,6 @@ Static HTML, CSS and three JavaScript modules in public/. Cloudflare Pages Funct
 
 ## Learned rules
 - Visible text follows the Finnish writing guide of the parent project: no em dashes, short sentences, headings first and explanations as plain sentences.
-- Nothing invented may look real: the shop has no name, the technicians have roles, the phone number is a placeholder and the page says so.
+- Nothing invented may look real: the shop has no name, the mechanics have roles, the phone number is a placeholder and the page says so.
 - A transform on an ancestor (even from a finished animation with fill-mode both) anchors position: fixed children to that ancestor. Animate opacity only, or fill backwards.
+- Words (owner's decision 12 October 2026): the people who fix cars are mechanics, never technicians. No shop-counter metaphors in headings or copy ("behind the counter", "both sides of the counter"); say what the panel is, such as "Week board and log" or "Staff view".

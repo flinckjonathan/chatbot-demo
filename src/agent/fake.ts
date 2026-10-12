@@ -1,5 +1,5 @@
 // A scripted stand-in for the model. It lets the UI, the tool loop and the
-// counter board be exercised without an API key or cost: ask to book and it
+// week board be exercised without an API key or cost: ask to book and it
 // looks up times; say yes and it books the first time it saw. Used by the
 // tests and by local development with CHAT_FAKE=1.
 

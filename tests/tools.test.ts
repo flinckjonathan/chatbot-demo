@@ -16,8 +16,8 @@ test('without a mechanic the lookup lists every suitable mechanic with an ISO ti
   const out = getAvailableTimes(LOOKUP_ALL, c);
   assert.equal(out.refused, false);
   assert.match(out.text, /Work time 120 min/);
-  assert.match(out.text, /service \(Service technician/);
-  assert.match(out.text, /diag \(Diagnostics technician/);
+  assert.match(out.text, /service \(Service mechanic/);
+  assert.match(out.text, /diag \(Diagnostics mechanic/);
   assert.doesNotMatch(out.text, /hv/);
   assert.match(out.text, /\[2026-10-\d{2}T\d{2}:\d{2}:00\+03:00\]/);
   assert.deepEqual(c.turn.events.map((e) => e.kind), ['lookup']);
@@ -27,7 +27,7 @@ test('a mechanic who does not do the job is a refusal for the model and a blocke
   const c = ctx();
   const out = getAvailableTimes({ ...LOOKUP_ALL, issue_type: 'ac', mechanic_id: 'hv' }, c);
   assert.equal(out.refused, true);
-  assert.match(out.text, /^ERROR: Technician "hv" does not do this job/);
+  assert.match(out.text, /^ERROR: Mechanic "hv" does not do this job/);
   assert.equal(c.turn.events[0]?.kind, 'blocked');
 });
 
@@ -99,12 +99,12 @@ test('the lookup remembers the offered times, so the reply can carry them as but
   const all = ctx();
   getAvailableTimes(LOOKUP_ALL, all);
   assert.equal(all.turn.offered.length, 2);
-  assert.match(all.turn.offered[0]?.label ?? '', /^\w{3} \d{1,2}\.\d{1,2}\. \d{1,2}\.\d{2}, Service technician$/);
+  assert.match(all.turn.offered[0]?.label ?? '', /^\w{3} \d{1,2}\.\d{1,2}\. \d{1,2}\.\d{2}, Service mechanic$/);
   assert.match(all.turn.offered[0]?.start ?? '', /^2026-10-\d{2}T\d{2}:\d{2}:00\+03:00$/);
 
   const one = ctx();
   getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'service' }, one);
-  assert.ok(one.turn.offered.length > 6, 'all of one technician\'s times are kept; the reply cuts them to six');
-  assert.doesNotMatch(one.turn.offered[0]?.label ?? '', /technician/);
+  assert.ok(one.turn.offered.length > 6, 'all of one mechanic\'s times are kept; the reply cuts them to six');
+  assert.doesNotMatch(one.turn.offered[0]?.label ?? '', /mechanic/);
   assert.equal(one.turn.offered.every((o) => o.mechanicId === 'service'), true);
 });

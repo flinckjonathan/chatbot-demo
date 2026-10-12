@@ -1,4 +1,4 @@
-// The counter view: the week board the service desk would look at, built
+// The board view: the week board the service desk would look at, built
 // from the same calendar the agent uses. Free times are shown for the
 // smallest booking step; bookings of this conversation appear as blocks.
 // Every label is formatted here, so the browser never has to know the zone.

@@ -13,9 +13,9 @@ const JPEG_QUALITY = 0.85;
 const DOCKED = window.matchMedia('(min-width: 1100px)');
 
 const GREETING = {
-  en: "Hi! I'm the customer advisor of this workshop. Ask about our services, describe a problem with your car, send a picture of a warning light, or book a time with one of our technicians.",
+  en: "Hi! I'm the customer advisor of this workshop. Ask about our services, describe a problem with your car, send a picture of a warning light, or book a time with one of our mechanics.",
   fi: 'Hei! Olen tämän korjaamon asiakasneuvoja. Kysy palveluistamme, kerro auton ongelmasta, lähetä kuva varoitusvalosta tai varaa aika asentajalle.',
-  sv: 'Hej! Jag är verkstadens kundrådgivare. Fråga om våra tjänster, beskriv ett problem med bilen, skicka en bild på en varningslampa eller boka en tid hos en tekniker.',
+  sv: 'Hej! Jag är verkstadens kundrådgivare. Fråga om våra tjänster, beskriv ett problem med bilen, skicka en bild på en varningslampa eller boka en tid hos en mekaniker.',
 };
 
 /** Things to try, in the reply language. The last one sends the sample warning-light picture. */

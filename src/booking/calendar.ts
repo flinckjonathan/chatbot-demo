@@ -1,4 +1,4 @@
-// Calendar seam. The agent, the booking core and the counter board only
+// Calendar seam. The agent, the booking core and the week board only
 // know this interface; the demo ships one implementation, a deterministic
 // mock. A live adapter for a workshop management system would implement
 // the same two methods and be swapped in at the composition root.

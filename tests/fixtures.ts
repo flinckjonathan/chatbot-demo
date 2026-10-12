@@ -27,7 +27,7 @@ export function bookingInput(overrides: RawInput = {}): RawInput {
   };
 }
 
-/** The first free start of a technician in the week after NOW. */
+/** The first free start of a mechanic in the week after NOW. */
 export function firstStart(mechanicId: string, workMin: number): string {
   const slot = mockCalendarFactory(NOW, []).freeSlots(mechanicId, workMin, '2026-10-14', '2026-10-20', 1)[0];
   if (!slot) throw new Error(`no free slot for ${mechanicId}`);

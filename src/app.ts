@@ -1,6 +1,6 @@
 // Composition root: the one place that decides which calendar, store and
 // model the HTTP handlers use. Swap the mock calendar for a live adapter
-// here and both sides of the counter follow.
+// here and the agent and the board follow.
 
 import Anthropic from '@anthropic-ai/sdk';
 import { FakeModel } from './agent/fake.ts';

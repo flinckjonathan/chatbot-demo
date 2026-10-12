@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Chatbot Demo</title>
-  <meta name="description" content="A customer advisor for a car repair shop that books real times: Claude with tools, a simulated calendar and guardrails. Both sides of the counter on one page.">
+  <meta name="description" content="A customer advisor for a car repair shop that books real times: Claude with tools, a simulated calendar and guardrails. The chat and the shop's week board on one page.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="site">
@@ -19,7 +19,7 @@
     </nav>
   </header>
 
-  <main class="counter">
+  <main class="main-grid">
     <aside class="chat-root" aria-label="Customer advisor chat">
       <button type="button" class="chatfab" id="chat-fab" aria-haspopup="dialog" aria-expanded="false" aria-controls="chat-panel">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4z"/></svg>
@@ -63,13 +63,13 @@
 
     <section class="panel desk" aria-labelledby="desk-h">
       <div class="panel-head">
-        <h2 id="desk-h">Behind the counter</h2>
+        <h2 id="desk-h">Week board and log</h2>
         <p>The shop's week board and the agent's log for this conversation. A booking you make in the chat lands here. The <a href="staff" id="staff-link-2">staff view</a> adds the approval queue and the prompt the bot sees.</p>
       </div>
       <div class="board-wrap">
         <table class="board" id="board" aria-label="Week board"></table>
       </div>
-      <p class="swipe-hint">Swipe sideways to see all three technicians.</p>
+      <p class="swipe-hint">Swipe sideways to see all three mechanics.</p>
       <h3 class="events-h">Agent log</h3>
       <ol id="events" class="events"></ol>
     </section>

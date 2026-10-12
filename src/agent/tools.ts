@@ -2,7 +2,7 @@
 // tool answers the model with a short factual text; a refusal carries the
 // ERROR prefix the system prompt tells the model to look for, and is also
 // flagged as an error on the API side. Every call writes an event for the
-// counter view, so a visitor sees what the agent did.
+// board view, so a visitor sees what the agent did.
 
 import type Anthropic from '@anthropic-ai/sdk';
 import { bookingWindow, type CalendarFactory } from '../booking/calendar.ts';
@@ -99,7 +99,7 @@ export const TOOLS: BetaTool[] = [
 export interface OfferedTime {
   start: string;
   mechanicId: string;
-  /** "Wed 14.10. 8.30", with the technician's role when several technicians were offered. */
+  /** "Wed 14.10. 8.30", with the mechanic's role when several mechanics were offered. */
   label: string;
 }
 
@@ -146,7 +146,7 @@ function slotLine(slot: Slot, lang: Lang): string {
   return `${whenLabel(slot, lang)} [${slot.start}]`;
 }
 
-/** Remembers a time the customer was shown, once per technician and start. */
+/** Remembers a time the customer was shown, once per mechanic and start. */
 function offer(ctx: ToolContext, slot: Slot, mechanicId: string, withName = ''): void {
   if (ctx.turn.offered.some((o) => o.start === slot.start && o.mechanicId === mechanicId)) return;
   const time = `${dayLabel(slot.date, ctx.lang)} ${clockLabel(slot.startMin)}`;
@@ -162,7 +162,7 @@ export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcom
     return refuse(
       ctx,
       `Lookup refused: no mechanic does ${issue} for powertrain "${powertrain}".`,
-      `No technician does this job for this powertrain. Offer a contact request or the phone number ${BUSINESS.phone}.`,
+      `No mechanic does this job for this powertrain. Offer a contact request or the phone number ${BUSINESS.phone}.`,
     );
   }
   const calendar = ctx.calendar(ctx.now, ctx.state.bookings);
@@ -187,7 +187,7 @@ export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcom
     return refuse(
       ctx,
       `Lookup refused: ${mechanicId} does not do ${issue}.`,
-      `Technician "${mechanicId}" does not do this job. Suitable: ${suitable.map((m) => m.id).join(', ')}.`,
+      `Mechanic "${mechanicId}" does not do this job. Suitable: ${suitable.map((m) => m.id).join(', ')}.`,
     );
   }
   const slots = calendar.freeSlots(mechanic.id, workMin, window.from, window.to, 20);
@@ -221,7 +221,7 @@ export function createBookingTool(input: RawInput, ctx: ToolContext): ToolOutcom
   const mechanic = mechanicName(b.mechanicId);
   record(ctx, 'booking', `Booked ${mechanic}, ${label}, ${b.issueType} ${b.workMin} min, ${b.vehicle}. Reference ${b.ref}.`);
   return done(
-    `Booking confirmed. Reference ${b.ref}. Technician ${mechanic}. Start ${label}. Tell the customer the reference, the technician and the start time, and that changes and cancellations go by phone ${BUSINESS.phone}.`,
+    `Booking confirmed. Reference ${b.ref}. Mechanic ${mechanic}. Start ${label}. Tell the customer the reference, the mechanic and the start time, and that changes and cancellations go by phone ${BUSINESS.phone}.`,
   );
 }
 

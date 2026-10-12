@@ -1,4 +1,4 @@
-// GET /api/board?session=<uuid>&lang=en. The counter view for a session on
+// GET /api/board?session=<uuid>&lang=en. The board view for a session on
 // page load; after each chat turn the board travels with the reply.
 
 import { buildBoard } from '../../src/agent/board.ts';

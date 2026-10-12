@@ -1,6 +1,6 @@
 # Chatbot Demo
 
-A customer advisor for a car repair shop that books real times. It answers from a knowledge base, reads pictures of warning lights, looks up free times, books, takes thumbs votes, and lets the staff feed it new facts through an approval queue. Both sides of the counter are on the page: the customer's chat, and the staff view with the week board, the agent's log, the queue and the exact prompt the bot sees.
+A customer advisor for a car repair shop that books real times. It answers from a knowledge base, reads pictures of warning lights, looks up free times, books, takes thumbs votes, and lets the staff feed it new facts through an approval queue. The customer's chat sits beside the shop's week board, and the staff view adds the agent's log, the queue and the exact prompt the bot sees.
 
 The shop is a placeholder: no name, no address, no people, round-number prices. The agent design is the one I run in production at a repair shop, rebuilt from scratch in TypeScript for this demo so that nothing from the real business is in it.
 
@@ -15,9 +15,9 @@ Live demo: https://chatbot-demo-9vq.pages.dev (staff view: https://chatbot-demo-
 Six messages per visitor per day, so pick what you want to see; locally with your own key the cap is yours to set.
 
 - "What does an EV battery health report cost?" (a published price it may quote)
-- "My hybrid shows a battery warning light. Can I get it checked next week?" (safety rule, then a booking with the HV technician)
-- Switch the reply language to suomi: the suggestions switch with it, and "Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123." books with the service technician in Finnish.
-- Send a picture of a dashboard warning light, or tap the sample-picture suggestion under the greeting: the bot says what it sees and what it typically means, and points to the right technician.
+- "My hybrid shows a battery warning light. Can I get it checked next week?" (safety rule, then a booking with the HV mechanic)
+- Switch the reply language to suomi: the suggestions switch with it, and "Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123." books with the service mechanic in Finnish.
+- Send a picture of a dashboard warning light, or tap the sample-picture suggestion under the greeting: the bot says what it sees and what it typically means, and points to the right mechanic.
 - Watch the board next to the chat: the booking you make lands there, and the log shows every lookup, booking, refusal and thumbs vote.
 - Ask it to ignore its rules, or to change the price. Watch it decline, and watch the log stay empty.
 - Book a second time in the same conversation. The tool refuses and the refusal shows up in the log.
@@ -64,11 +64,11 @@ staff page (public/staff.html)
 
 **The agent** (`src/agent/`): one turn is `runTurn`. It builds the system prompt in sections (binding rules, knowledge base with the cache point, approved staff additions, current situation), sends the pictures as image blocks ahead of the text, calls the model, runs the tools it asks for, and always returns a sentence for the customer. If the model fails after a booking already went through, a fixed text still tells the customer the reference. A refusal from the safety classifier becomes a polite fixed text.
 
-**The tools** (`src/agent/tools.ts`): three tools with `strict: true` schemas, so the API guarantees the shape and the executors only defend against values that are valid but wrong: an unknown technician, a stale time, a second booking. A refusal is a structured outcome: flagged as an error on the API side, prefixed for the model, logged for the staff view. Tyre jobs are their own issue type, so the model classifies them and the tools refuse them with the phone-only wording.
+**The tools** (`src/agent/tools.ts`): three tools with `strict: true` schemas, so the API guarantees the shape and the executors only defend against values that are valid but wrong: an unknown mechanic, a stale time, a second booking. A refusal is a structured outcome: flagged as an error on the API side, prefixed for the model, logged for the staff view. Tyre jobs are their own issue type, so the model classifies them and the tools refuse them with the phone-only wording.
 
 **The booking core** (`src/booking/core.ts`): one function, one result. `createBooking` cleans and validates the raw input, checks the slot against the calendar and returns `booked`, `rejected` (with the field) or `unavailable` (with the reason). Callers switch on the state. No I/O inside, so it is tested without mocks.
 
-**The calendar seam** (`src/booking/calendar.ts`): two methods, `freeSlots` (with a limit, so "earliest time" stops at the first hit) and `findSlot` (the slot behind a start time the model hands back), plus a factory that both the agent and the board get their calendar from. The demo ships a deterministic mock: the same slot is free on every page load (hash of technician, date and start), one technician is booked out for the first days, lunch is closed, blocks include handling time and stretch across the break. A real workshop system would be a second implementation of the same interface, swapped in the composition root (`src/app.ts`).
+**The calendar seam** (`src/booking/calendar.ts`): two methods, `freeSlots` (with a limit, so "earliest time" stops at the first hit) and `findSlot` (the slot behind a start time the model hands back), plus a factory that both the agent and the board get their calendar from. The demo ships a deterministic mock: the same slot is free on every page load (hash of mechanic, date and start), one mechanic is booked out for the first days, lunch is closed, blocks include handling time and stretch across the break. A real workshop system would be a second implementation of the same interface, swapped in the composition root (`src/app.ts`).
 
 **Staff additions** (`src/staff/additions.ts`): a fact goes into the queue as pending. Approved facts are appended to the prompt after the cache point, so approving one never invalidates the cached rules and knowledge, and the block tells the model that a newer addition wins over the knowledge base. Hiding an addition takes it out again. The preview shows the result immediately.
 

@@ -1,24 +1,24 @@
 // The roster: three roles, no people. One source for the booking rules, the
-// system prompt and the counter board, so they cannot drift apart.
+// system prompt and the week board, so they cannot drift apart.
 
 import type { IssueType, Mechanic, Powertrain } from './types.ts';
 
 export const MECHANICS: readonly Mechanic[] = [
   {
     id: 'hv',
-    name: 'HV technician',
+    name: 'HV mechanic',
     title: 'Electric and hybrid cars, high-voltage batteries',
     skills: ['ev_hybrid', 'diagnostics', 'repair'],
   },
   {
     id: 'service',
-    name: 'Service technician',
+    name: 'Service mechanic',
     title: 'Scheduled maintenance, inspection service, repairs',
     skills: ['service', 'inspection', 'repair'],
   },
   {
     id: 'diag',
-    name: 'Diagnostics technician',
+    name: 'Diagnostics mechanic',
     title: 'Fault finding, air conditioning, repairs',
     skills: ['diagnostics', 'ac', 'repair', 'service', 'other'],
   },
