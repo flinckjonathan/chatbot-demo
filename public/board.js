@@ -23,7 +23,7 @@ export function renderBoard(table, list, board, landedRef) {
 
   const tbody = el('tbody');
   for (const day of board.days) {
-    const tr = el('tr');
+    const tr = el('tr', day.later ? 'later' : '');
     const th = el('th', '', day.label);
     th.scope = 'row';
     tr.appendChild(th);

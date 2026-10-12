@@ -16,6 +16,8 @@ export interface BoardDay {
   date: string;
   /** "Mon 13.10." */
   label: string;
+  /** Beyond the next working days; shown because a booking landed there. */
+  later: boolean;
 }
 
 export interface BoardBlock {
@@ -57,9 +59,18 @@ export function workingDays(now: Date, count = BOARD_DAYS): string[] {
   return out;
 }
 
+/** The next working days, plus any later day a booking of this session landed on. */
+function boardDates(now: Date, state: SessionState): { date: string; later: boolean }[] {
+  const near = workingDays(now);
+  const last = near[near.length - 1] ?? '';
+  const later = [...new Set(state.bookings.map((b) => b.date).filter((d) => d > last))].sort();
+  return [...near.map((date) => ({ date, later: false })), ...later.map((date) => ({ date, later: true }))];
+}
+
 export function buildBoard(now: Date, state: SessionState, lang: Lang, calendarFactory: CalendarFactory): Board {
   const calendar = calendarFactory(now, state.bookings);
-  const dates = workingDays(now);
+  const days = boardDates(now, state);
+  const dates = days.map((d) => d.date);
   const cells: BoardCell[] = [];
   for (const m of MECHANICS) {
     for (const date of dates) {
@@ -79,7 +90,7 @@ export function buildBoard(now: Date, state: SessionState, lang: Lang, calendarF
     }
   }
   return {
-    days: dates.map((date) => ({ date, label: dayLabel(date, lang) })),
+    days: days.map((d) => ({ date: d.date, label: dayLabel(d.date, lang), later: d.later })),
     mechanics: MECHANICS.map((m) => ({ id: m.id, name: m.name, title: m.title })),
     cells,
     events: state.events.map((e) => {

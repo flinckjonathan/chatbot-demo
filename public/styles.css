@@ -578,6 +578,16 @@ textarea {
   white-space: nowrap;
 }
 
+/* A later day appears only because a booking landed there. */
+.board tr.later th {
+  border-top: 3px double var(--line);
+}
+
+.board tr.later th::after {
+  content: ' later';
+  font-weight: 400;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

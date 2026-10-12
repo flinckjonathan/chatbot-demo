@@ -132,7 +132,7 @@ src/staff/        additions: the approval queue
 src/guard/        input parsing and limits (pictures included), rate limiting
 src/store/        session state and counters: memory for tests, KV in production
 src/knowledge/    the placeholder business
-tests/            node --test
+tests/            node --test, 60 tests
 DESIGN.md         the visual decisions
 ```
 
