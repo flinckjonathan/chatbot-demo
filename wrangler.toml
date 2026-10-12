@@ -10,3 +10,10 @@ pages_build_output_dir = "public"
 [[kv_namespaces]]
 binding = "DEMO_KV"
 id = "83b39cb0853b4269888268d169aae3fe"
+
+# The message caps default to 6 per visitor and 50 for the whole demo per
+# day (src/guard/rateLimit.ts). To change them without touching code, set
+# plain-text variables here or in the Pages dashboard:
+# [vars]
+# RATE_PER_VISITOR = "6"
+# RATE_PER_DAY = "50"

@@ -69,13 +69,26 @@ function transcriptTexts(params: Params): string[] {
   return out;
 }
 
-/** First "[ISO]" offered to the customer anywhere in the transcript, with its mechanic id. */
-function offeredSlot(params: Params): { mechanicId: string; start: string } | null {
+/** The "[ISO]" offered to the customer in the transcript, with its mechanic id: the one asked for, or the first. */
+function offeredSlot(params: Params, iso: string | null = null): { mechanicId: string; start: string } | null {
   for (const text of transcriptTexts(params)) {
-    const line = text.split('\n').find((l) => /^[a-z]+ \(.*\[\d{4}-\d{2}-\d{2}T/.test(l));
-    const iso = line?.match(/\[([^\]]+)\]/)?.[1];
+    const line = text
+      .split('\n')
+      .find((l) => /^[a-z]+ \(.*\[\d{4}-\d{2}-\d{2}T/.test(l) && (!iso || l.includes(`[${iso}]`)));
+    const start = line?.match(/\[([^\]]+)\]/)?.[1];
     const mechanicId = line?.match(/^([a-z]+) \(/)?.[1];
-    if (iso && mechanicId) return { mechanicId, start: iso };
+    if (start && mechanicId) return { mechanicId, start };
+  }
+  return null;
+}
+
+/** The ISO value in brackets of the latest user turn that picked a time with a button, if any. */
+function chosenIso(params: Params): string | null {
+  for (let i = params.messages.length - 1; i >= 0; i--) {
+    const m = params.messages[i];
+    if (!m || m.role !== 'user' || typeof m.content !== 'string') continue;
+    const iso = m.content.match(/\((\d{4}-\d{2}-\d{2}T[^)]+)\)/)?.[1];
+    if (iso) return iso;
   }
   return null;
 }
@@ -88,11 +101,15 @@ export class FakeModel implements ModelClient {
       if (result.refused) return fakeText(`The tool refused: ${result.text.replace(/^ERROR: /, '')}`);
       if (result.text.startsWith('Booking confirmed')) return fakeText(`${result.text.split('. Tell')[0]}. This is the scripted fake model speaking.`);
       if (result.text.startsWith('Contact request sent')) return fakeText(result.text.split('. Tell')[0] ?? result.text);
-      return fakeText(`Here is what the calendar says:\n${result.text}\n\nAnswer "yes" to book the first time.`);
+      return fakeText(`Here is what the calendar says:\n${result.text}\n\nTap a time, or answer "yes" to book the first one.`);
     }
     const asked = lastUserText(params);
+    const chosen = chosenIso(params);
+    if (chosen && /\b(choose|valitsen|väljer)\b/i.test(asked)) {
+      return fakeText(`Summary: Demo Customer, 040 123 4567, ABC-123, service at ${chosen}. Shall I book it?`);
+    }
     if (/\b(yes|kyllä|ja|joo)\b/i.test(asked)) {
-      const slot = offeredSlot(params);
+      const slot = offeredSlot(params, chosen);
       if (slot) {
         return fakeToolUse('create_booking', {
           name: 'Demo Customer',

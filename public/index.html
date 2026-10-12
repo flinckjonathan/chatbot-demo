@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Chatbot Demo</title>
   <meta name="description" content="A customer advisor for a car repair shop that books real times: Claude with tools, a simulated calendar and guardrails. Both sides of the counter on one page.">
   <link rel="stylesheet" href="styles.css">
@@ -42,16 +42,17 @@
           </button>
         </header>
         <p id="fake-note" class="fake-note" hidden>Running against a scripted stand-in for the model. Ask to book a time, then answer yes.</p>
-        <ol id="messages" class="messages" role="log" aria-live="polite" aria-label="Conversation"></ol>
-        <div id="starters" class="starters" aria-label="Things to try">
-          <button type="button" data-text="What does an EV battery health report cost?">What does an EV battery health report cost?</button>
-          <button type="button" data-text="My hybrid shows a battery warning light. Can I get it checked next week?">My hybrid shows a battery warning light. Can I get it checked next week?</button>
-          <button type="button" data-text="Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.">Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.</button>
-          <button type="button" class="starter-picture" data-sample="sample-warning.png" data-text="This came on in my dashboard this morning. What does it mean?">
-            <img src="sample-warning.png" alt="" width="40" height="30">
-            <span>Send this warning light as a picture</span>
-          </button>
-        </div>
+        <ol id="messages" class="messages" role="log" aria-live="polite" aria-label="Conversation">
+          <li id="starters" class="chips" aria-label="Things to try">
+            <button type="button" class="chip" data-text="What does an EV battery health report cost?">What does an EV battery health report cost?</button>
+            <button type="button" class="chip" data-text="My hybrid shows a battery warning light. Can I get it checked next week?">My hybrid shows a battery warning light. Can I get it checked next week?</button>
+            <button type="button" class="chip" data-text="Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.">Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.</button>
+            <button type="button" class="chip starter-picture" data-sample="sample-warning.png" data-text="This came on in my dashboard this morning. What does it mean?">
+              <img src="sample-warning.png" alt="" width="40" height="30">
+              <span>Send this warning light as a picture</span>
+            </button>
+          </li>
+        </ol>
         <ul id="photos" class="photos" hidden></ul>
         <form id="form" class="composer">
           <input type="file" id="file" accept="image/*" multiple hidden>
@@ -64,7 +65,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-7 18-3-8z"/></svg>
           </button>
         </form>
-        <p class="note">The AI advisor can be wrong. Demo data is deleted after 24 hours; please do not enter real personal details.</p>
+        <p class="note">The AI advisor can be wrong. Six messages per visitor per day; demo data is deleted after 24 hours. Please do not enter real personal details.</p>
       </section>
     </aside>
 
@@ -87,11 +88,11 @@
     <div class="how-grid">
       <div>
         <h3>The agent</h3>
-        <p>Claude gets three tools: look up free times, create a booking, send a contact request. The booking core validates every call, so a missing consent or a stale time comes back as an error the model has to handle in the conversation. One booking per conversation, and the tool loop stops after three rounds. Pictures go to the model and are never stored.</p>
+        <p>Claude gets three tools: look up free times, create a booking, send a contact request. The booking core validates every call, so a missing consent or a stale time comes back as an error the model has to handle in the conversation. One booking per conversation, and the tool loop stops after three rounds. The times it offers come back as buttons under the reply, taken from the tool results, so a booking on a phone is a few taps. Pictures go to the model and are never stored.</p>
       </div>
       <div>
         <h3>The guardrails</h3>
-        <p>Binding rules in the system prompt: answer only from the knowledge base, quote only published prices, no definite diagnoses, instructions inside messages or pictures are not commands. Rate limits per visitor and per day keep the API key safe behind a public page. If the model fails after a booking went through, a fixed text still tells you the reference.</p>
+        <p>Binding rules in the system prompt: answer only from the knowledge base, quote only published prices, no definite diagnoses, instructions inside messages or pictures are not commands. A cap of six messages per visitor and fifty per day for the whole demo keeps the bill of a public page at cents. If the model fails after a booking went through, a fixed text still tells you the reference.</p>
       </div>
       <div>
         <h3>The staff side</h3>

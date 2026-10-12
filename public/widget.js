@@ -100,6 +100,8 @@ function openPanel() {
   if (!started) {
     started = true;
     addLine('msg assistant', GREETING[lang()] || GREETING.en);
+    // The things to try sit under the greeting until the first message.
+    els.messages.appendChild(els.starters);
   }
   if (!DOCKED.matches) els.input.focus({ preventScroll: true });
 }
@@ -114,10 +116,12 @@ function closePanel() {
 
 /* ---- messages ---- */
 
-function addLine(className, text) {
+/** A reply scrolls to its own top, so a long answer is read from the start; everything else scrolls to the end. */
+function addLine(className, text, scrollToTop = false) {
   const li = el('li', className, text);
   els.messages.appendChild(li);
-  els.messages.scrollTop = els.messages.scrollHeight;
+  if (scrollToTop) els.messages.scrollTop += li.getBoundingClientRect().top - els.messages.getBoundingClientRect().top - 8;
+  else els.messages.scrollTop = els.messages.scrollHeight;
   return li;
 }
 
@@ -139,8 +143,8 @@ function addUserLine(text, pictures) {
 }
 
 function addReply(text, mid) {
-  const li = addLine('msg assistant', text);
-  if (!mid) return;
+  const li = addLine('msg assistant', text, true);
+  if (!mid) return li;
   const fb = el('div', 'feedback');
   for (const [vote, label, path] of [
     ['up', 'Helpful', 'M7 11v9H4v-9zm3 9h7.5a2 2 0 0 0 2-1.6l1.2-6A2 2 0 0 0 18.7 10H14V5.5A1.5 1.5 0 0 0 12.5 4L10 11z'],
@@ -156,6 +160,7 @@ function addReply(text, mid) {
     fb.appendChild(button);
   }
   li.appendChild(fb);
+  return li;
 }
 
 async function sendVote(fb, mid, vote) {
@@ -179,6 +184,37 @@ function typingStatus(text) {
   if (awaitingConfirm && /^(kyllä|joo|ja\b|yes|ok)/.test(s)) return t('book');
   if (/aik(a|oja|aa)|vapaa|milloin|pääs|varaa|boka|tid|book|time|slot|next week|ensi viikko/.test(s)) return t('times');
   return t('typing');
+}
+
+/* ---- buttons under a reply: the offered times and the quick answers ---- */
+
+let chipsEl = null;
+
+function removeChips() {
+  if (chipsEl) chipsEl.remove();
+  chipsEl = null;
+}
+
+/** The server decides the buttons from what the tools did; the browser only places them under `reply`. */
+function renderChips(chips, reply) {
+  removeChips();
+  awaitingConfirm = chips.some((c) => c.kind === 'confirm');
+  if (chips.length === 0) return;
+  chipsEl = el('li', 'chips');
+  for (const chip of chips) {
+    const button = el('button', chip.kind === 'time' ? 'chip time' : 'chip', chip.label);
+    button.type = 'button';
+    button.addEventListener('click', () => {
+      els.input.value = chip.message;
+      els.form.requestSubmit();
+    });
+    chipsEl.appendChild(button);
+  }
+  els.messages.appendChild(chipsEl);
+  // Bring the buttons into view as far as the reply's first line stays visible.
+  const m = els.messages;
+  const replyTop = reply.getBoundingClientRect().top - m.getBoundingClientRect().top;
+  m.scrollTop += Math.max(0, Math.min(replyTop - 8, m.scrollHeight - m.clientHeight - m.scrollTop));
 }
 
 /* ---- pictures ---- */
@@ -285,7 +321,8 @@ async function onSubmit(event) {
   setBusy(true);
   els.input.value = '';
   els.input.style.height = '';
-  els.starters.hidden = true;
+  els.starters.remove();
+  removeChips();
   addUserLine(text, pictures);
   const pending = addLine('pending', typingStatus(text));
 
@@ -298,8 +335,8 @@ async function onSubmit(event) {
     });
     pending.remove();
     if (ok && typeof data.reply === 'string') {
-      addReply(data.reply, data.mid);
-      awaitingConfirm = /\?\s*$/.test(data.reply) && /(varaa|boka|book|confirm|vahvist|bekräft)/i.test(data.reply);
+      const reply = addReply(data.reply, data.mid);
+      renderChips(Array.isArray(data.chips) ? data.chips : [], reply);
       boardVersion++;
       renderBoard(els.board, els.events, data.board, data.ref);
     } else {

@@ -6,7 +6,7 @@ import { emptySession } from '../src/store/store.ts';
 import { NOW, bookingInput } from './fixtures.ts';
 
 function ctx(): ToolContext {
-  return { now: NOW, lang: 'en', state: emptySession(), calendar: mockCalendarFactory, turn: { events: [] } };
+  return { now: NOW, lang: 'en', state: emptySession(), calendar: mockCalendarFactory, turn: { events: [], offered: [] } };
 }
 
 const LOOKUP_ALL = { issue_type: 'service', powertrain: '', mechanic_id: '', duration_min: 0, from_date: '' };
@@ -93,4 +93,18 @@ test('unknown tools do not crash the turn', () => {
   const c = ctx();
   assert.deepEqual(executeTool('delete_everything', {}, c), { text: 'ERROR: unknown tool.', refused: true });
   assert.equal(c.turn.events[0]?.kind, 'error');
+});
+
+test('the lookup remembers the offered times, so the reply can carry them as buttons', () => {
+  const all = ctx();
+  getAvailableTimes(LOOKUP_ALL, all);
+  assert.equal(all.turn.offered.length, 2);
+  assert.match(all.turn.offered[0]?.label ?? '', /^\w{3} \d{1,2}\.\d{1,2}\. \d{1,2}\.\d{2}, Service technician$/);
+  assert.match(all.turn.offered[0]?.start ?? '', /^2026-10-\d{2}T\d{2}:\d{2}:00\+03:00$/);
+
+  const one = ctx();
+  getAvailableTimes({ ...LOOKUP_ALL, mechanic_id: 'service' }, one);
+  assert.ok(one.turn.offered.length > 6, 'all of one technician\'s times are kept; the reply cuts them to six');
+  assert.doesNotMatch(one.turn.offered[0]?.label ?? '', /technician/);
+  assert.equal(one.turn.offered.every((o) => o.mechanicId === 'service'), true);
 });

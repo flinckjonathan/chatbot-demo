@@ -7,7 +7,7 @@ import { invalidRequestText, rateLimitedText, serverErrorText, switchedOffText, 
 import { calendar, json, modelFor, storeFor, type Env } from '../../src/app.ts';
 import type { Lang } from '../../src/booking/types.ts';
 import { MAX_IMAGES, MAX_IMAGE_BYTES, parseChatBody } from '../../src/guard/input.ts';
-import { checkRate, visitorKey } from '../../src/guard/rateLimit.ts';
+import { checkRate, limitsFrom, visitorKey } from '../../src/guard/rateLimit.ts';
 import { emptySession } from '../../src/store/store.ts';
 
 /** Two pictures as base64 plus a message; anything larger is not a chat turn. */
@@ -45,8 +45,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // The session read does not depend on the rate verdict, so it runs alongside it.
   const pendingState = store.get(body.sessionId).catch(() => emptySession());
   const ip = request.headers.get('cf-connecting-ip') ?? 'local';
-  const verdict = await checkRate(store, await visitorKey(ip, env.RATE_SALT ?? 'demo'), now);
-  if (!verdict.ok) return json({ code: 'rate', scope: verdict.scope, text: rateLimitedText(body.lang, verdict.scope) }, 429);
+  const verdict = await checkRate(store, await visitorKey(ip, env.RATE_SALT ?? 'demo'), now, limitsFrom(env));
+  if (!verdict.ok) return json({ code: 'rate', scope: verdict.scope, text: rateLimitedText(body.lang, verdict.scope, verdict.max) }, 429);
 
   // Note: KV has no compare-and-set. Two tabs sharing one session id can
   // race this read-modify-write; the demo accepts that.
@@ -61,5 +61,5 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return errorResponse(err, body.lang);
   }
   await store.put(body.sessionId, state);
-  return json({ reply: turn.reply, mid: turn.mid, ref: turn.ref ?? null, board: buildBoard(now, state, body.lang, calendar) });
+  return json({ reply: turn.reply, mid: turn.mid, ref: turn.ref ?? null, chips: turn.chips, board: buildBoard(now, state, body.lang, calendar) });
 };

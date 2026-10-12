@@ -55,7 +55,7 @@ export function unavailableText(lang: Lang): string {
 }
 
 /** Too many messages (HTTP 429), per visitor or for the whole demo. */
-export function rateLimitedText(lang: Lang, scope: 'visitor' | 'global'): string {
+export function rateLimitedText(lang: Lang, scope: 'visitor' | 'global', max: number): string {
   if (scope === 'global') {
     return {
       fi: 'Demon päiväraja on täynnä. Tule takaisin huomenna.',
@@ -64,9 +64,25 @@ export function rateLimitedText(lang: Lang, scope: 'visitor' | 'global'): string
     }[lang];
   }
   return {
-    fi: 'Viestejä tuli juuri nyt liikaa. Odota muutama minuutti ja yritä uudelleen.',
-    sv: 'För många meddelanden just nu. Vänta några minuter och försök igen.',
-    en: 'Too many messages right now. Wait a few minutes and try again.',
+    fi: `Tässä demossa yksi kävijä voi lähettää ${max} viestiä päivässä, jotta julkinen sivu ei kerrytä laskua. Koodi on GitHubissa ja toimii paikallisesti omalla avaimella.`,
+    sv: `I den här demon kan en besökare skicka ${max} meddelanden per dag, så att en öppen sida inte drar upp en räkning. Koden finns på GitHub och kör lokalt med en egen nyckel.`,
+    en: `This demo allows ${max} messages per visitor per day, so that a public page cannot run up a bill. The code is on GitHub and runs locally with your own key.`,
+  }[lang];
+}
+
+/** The quick answers under a reply. The label is also the message the button sends. */
+export const CHIP_TEXTS = {
+  confirm: { fi: 'Kyllä, varaa', sv: 'Ja, boka', en: 'Yes, book it' },
+  change: { fi: 'Muuta jotain', sv: 'Ändra något', en: 'Change something' },
+  more: { fi: 'Näytä lisää aikoja', sv: 'Visa fler tider', en: 'Show more times' },
+} as const;
+
+/** What a tapped time button sends: the label the customer saw plus the exact ISO value for the tool. */
+export function pickTimeText(lang: Lang, label: string, start: string): string {
+  return {
+    fi: `Valitsen ajan: ${label} (${start})`,
+    sv: `Jag väljer tiden: ${label} (${start})`,
+    en: `I choose the time: ${label} (${start})`,
   }[lang];
 }
 

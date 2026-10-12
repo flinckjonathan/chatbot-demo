@@ -10,7 +10,8 @@ import { whenLabel } from '../booking/clock.ts';
 import type { ChatBody } from '../guard/input.ts';
 import { MAX_TRANSCRIPT_CHARS, trimSession, type SessionState } from '../store/store.ts';
 import { systemBlocks } from './prompt.ts';
-import { bookingFallbackText, cutShortText, refusalText, requestFallbackText } from './texts.ts';
+import type { Lang } from '../booking/types.ts';
+import { CHIP_TEXTS, bookingFallbackText, cutShortText, pickTimeText, refusalText, requestFallbackText } from './texts.ts';
 import { TOOLS, executeTool, type ToolContext, type TurnLog } from './tools.ts';
 
 type Params = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming;
@@ -46,13 +47,48 @@ export class ApiUnavailable extends Error {
   }
 }
 
+/** A button under the reply. Tapping it sends `message` as the customer's next turn. */
+export interface Chip {
+  label: string;
+  message: string;
+  kind: 'time' | 'confirm' | 'change' | 'more';
+}
+
 export interface TurnResult {
   reply: string;
   /** Message id the browser sends back with a thumbs vote. */
   mid: string;
   /** Reference of a booking or request created during this turn. */
   ref?: string;
+  /** Buttons under the reply: the offered times, or confirm/change when the bot asked for a yes. */
+  chips: Chip[];
   rounds: number;
+}
+
+/** The bot asks for a yes before booking: the fixed question the prompt asks for, and the forms the model falls into. */
+const ASKS_CONFIRM = /(varaanko|vahvist\S*\s+varau|teenkö varauksen|haluatko,? että varaan|ska jag boka|bekräfta\S* bokning|shall i book|confirm (the )?booking)/i;
+
+const MAX_TIME_CHIPS = 6;
+
+/**
+ * Buttons for the browser, the same rules as the production bot: nothing
+ * once a booking or request exists; confirm and change when the bot asked
+ * for a yes (a tool wanted consent, or the reply ends with the question);
+ * otherwise the times the lookup tool showed, earliest first, plus "more".
+ */
+export function replyChips(turn: TurnLog, reply: string, lang: Lang): Chip[] {
+  if (turn.booking || turn.request) return [];
+  if (turn.askConsent || ASKS_CONFIRM.test(reply)) {
+    return [
+      { label: CHIP_TEXTS.confirm[lang], message: CHIP_TEXTS.confirm[lang], kind: 'confirm' },
+      { label: CHIP_TEXTS.change[lang], message: CHIP_TEXTS.change[lang], kind: 'change' },
+    ];
+  }
+  const offered = [...turn.offered].sort((a, b) => a.start.localeCompare(b.start)).slice(0, MAX_TIME_CHIPS);
+  if (offered.length === 0) return [];
+  const chips: Chip[] = offered.map((o) => ({ label: o.label, message: pickTimeText(lang, o.label, o.start), kind: 'time' }));
+  chips.push({ label: CHIP_TEXTS.more[lang], message: CHIP_TEXTS.more[lang], kind: 'more' });
+  return chips;
 }
 
 /** Eight hex characters, like the production log's message ids. */
@@ -114,7 +150,7 @@ function transcriptText(body: ChatBody): string {
  * happened before the failure. Pictures are sent to the model and never stored.
  */
 export async function runTurn(body: ChatBody, state: SessionState, now: Date, deps: TurnDeps): Promise<TurnResult> {
-  const turn: TurnLog = { events: [] };
+  const turn: TurnLog = { events: [], offered: [] };
   const ctx: ToolContext = { now, lang: body.lang, state, calendar: deps.calendar, turn };
   const messages: MessageParam[] = state.transcript.map((h) => ({ role: h.role, content: h.text }));
   messages.push({ role: 'user', content: userContent(body) });
@@ -149,7 +185,7 @@ export async function runTurn(body: ChatBody, state: SessionState, now: Date, de
       { role: 'user', text: transcriptText(body) },
       { role: 'assistant', text: reply.slice(0, MAX_TRANSCRIPT_CHARS), mid },
     );
-    return { reply, mid, ref: turn.booking?.ref ?? turn.request?.ref, rounds };
+    return { reply, mid, ref: turn.booking?.ref ?? turn.request?.ref, chips: replyChips(turn, reply, body.lang), rounds };
   };
 
   let rounds = 0;

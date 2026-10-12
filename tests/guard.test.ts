@@ -80,10 +80,10 @@ test('rate limits count per visitor first, then globally', async () => {
   assert.deepEqual(await checkRate(store, 'a', now(), limits), { ok: true });
   assert.deepEqual(await checkRate(store, 'a', now(), limits), { ok: true });
   // Rejected at the visitor level: must not consume the global budget.
-  assert.deepEqual(await checkRate(store, 'a', now(), limits), { ok: false, scope: 'visitor' });
-  assert.deepEqual(await checkRate(store, 'a', now(), limits), { ok: false, scope: 'visitor' });
+  assert.deepEqual(await checkRate(store, 'a', now(), limits), { ok: false, scope: 'visitor', max: 2 });
+  assert.deepEqual(await checkRate(store, 'a', now(), limits), { ok: false, scope: 'visitor', max: 2 });
   assert.deepEqual(await checkRate(store, 'b', now(), limits), { ok: true });
-  assert.deepEqual(await checkRate(store, 'c', now(), limits), { ok: false, scope: 'global' });
+  assert.deepEqual(await checkRate(store, 'c', now(), limits), { ok: false, scope: 'global', max: 3 });
   t += 86400 * 1000;
   assert.deepEqual(await checkRate(store, 'c', now(), limits), { ok: true });
 });

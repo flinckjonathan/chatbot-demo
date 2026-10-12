@@ -13,6 +13,9 @@ export interface Env {
   DEMO_KV?: KvLike;
   RATE_SALT?: string;
   CHAT_FAKE?: string;
+  /** Optional caps as whole numbers; see guard/rateLimit.ts for the defaults. */
+  RATE_PER_VISITOR?: string;
+  RATE_PER_DAY?: string;
 }
 
 export const calendar = mockCalendarFactory;

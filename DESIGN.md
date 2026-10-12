@@ -38,7 +38,7 @@ Three adjectives: plain, specific, unhurried.
 Forbidden: em dash as punctuation, small-caps eyebrow labels, "X, not Y" sentences, invented names or numbers presented as real.
 
 ## Layout
-Customer page (index.html): sign, then two columns on a wide screen. Left the chat, open from the start, with four things to try (three questions and a sample warning-light picture). Right the week board and the agent's log, which redraw from every reply. Under 1100 px the chat becomes a button in the corner that opens a 400 px panel, and under 620 px the panel fills the screen; the board sits under the sign. Then how it works, then the footer with the placeholder hours and phone.
+Customer page (index.html): sign, then two columns on a wide screen. Left the chat, open from the start, with four things to try as buttons under the greeting (three questions and a sample warning-light picture). The times the bot offers and its "shall I book it" question come back as buttons under the reply, and a reply scrolls to its own top so a long answer is read from the start. Right the week board and the agent's log, which redraw from every reply. Under 1100 px the chat becomes a button in the corner that opens a 400 px panel, and under 620 px the panel is a sheet from the bottom, 85 % of the screen, with the page still visible above it (the same shape as the production widget); the board sits under the sign. Then how it works, then the footer with the placeholder hours and phone.
 Staff page (staff.html): sign with the session line, two columns (week board and log, the approval queue), then the prompt preview full width. Stacks under 1100 px.
 
 Explicitly not on these pages:

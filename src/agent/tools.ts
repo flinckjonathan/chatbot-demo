@@ -6,7 +6,7 @@
 
 import type Anthropic from '@anthropic-ai/sdk';
 import { bookingWindow, type CalendarFactory } from '../booking/calendar.ts';
-import { whenLabel } from '../booking/clock.ts';
+import { clockLabel, dayLabel, whenLabel } from '../booking/clock.ts';
 import { createBooking, createContactRequest, describeWorkTimes, parseJob, type RawInput } from '../booking/core.ts';
 import { WORK_MAX, WORK_MIN } from '../booking/duration.ts';
 import { mechanicName, suitableMechanics } from '../booking/mechanics.ts';
@@ -95,9 +95,21 @@ export const TOOLS: BetaTool[] = [
   },
 ];
 
+/** A time the lookup tool showed the customer; the browser turns it into a button. */
+export interface OfferedTime {
+  start: string;
+  mechanicId: string;
+  /** "Wed 14.10. 8.30", with the technician's role when several technicians were offered. */
+  label: string;
+}
+
 /** What one turn's tool calls produced; the agent folds it into the session afterwards. */
 export interface TurnLog {
   events: AgentEvent[];
+  /** Times shown in this turn, so the reply can carry them as buttons. */
+  offered: OfferedTime[];
+  /** A tool refused because the customer had not said yes: the reply should carry a confirm button. */
+  askConsent?: boolean;
   booking?: Booking;
   request?: ContactRequest;
 }
@@ -134,6 +146,13 @@ function slotLine(slot: Slot, lang: Lang): string {
   return `${whenLabel(slot, lang)} [${slot.start}]`;
 }
 
+/** Remembers a time the customer was shown, once per technician and start. */
+function offer(ctx: ToolContext, slot: Slot, mechanicId: string, withName = ''): void {
+  if (ctx.turn.offered.some((o) => o.start === slot.start && o.mechanicId === mechanicId)) return;
+  const time = `${dayLabel(slot.date, ctx.lang)} ${clockLabel(slot.startMin)}`;
+  ctx.turn.offered.push({ start: slot.start, mechanicId, label: withName ? `${time}, ${withName}` : time });
+}
+
 export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcome {
   const job = parseJob(input);
   if (!job.ok) return refuse(ctx, `Lookup refused: ${job.rejection.message}`, job.rejection.message);
@@ -153,9 +172,9 @@ export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcom
   if (!mechanicId) {
     const lines = suitable.map((m) => {
       const [first] = calendar.freeSlots(m.id, workMin, window.from, window.to, 1);
-      return first
-        ? `${m.id} (${m.name}, ${m.title}): earliest free ${slotLine(first, ctx.lang)}`
-        : `${m.id} (${m.name}): no free times before ${window.to}`;
+      if (!first) return `${m.id} (${m.name}): no free times before ${window.to}`;
+      offer(ctx, first, m.id, m.name);
+      return `${m.id} (${m.name}, ${m.title}): earliest free ${slotLine(first, ctx.lang)}`;
     });
     record(ctx, 'lookup', `Looked up the earliest times for ${issue} (${workMin} min): ${suitable.map((m) => m.name).join(', ')}.`);
     return done(
@@ -176,6 +195,7 @@ export function getAvailableTimes(input: RawInput, ctx: ToolContext): ToolOutcom
   if (slots.length === 0) {
     return done(`${mechanic.name}: no free times between ${window.from} and ${window.to}. Try a later from_date or another mechanic.`);
   }
+  for (const s of slots) offer(ctx, s, mechanic.id);
   return done(`Work time ${workMin} min. ${mechanic.name}, free times (ISO value in brackets for booking):\n${slots.map((s) => slotLine(s, ctx.lang)).join('\n')}`);
 }
 
@@ -190,6 +210,7 @@ export function createBookingTool(input: RawInput, ctx: ToolContext): ToolOutcom
   }
   const result = createBooking(input, ctx.calendar(ctx.now, ctx.state.bookings), ctx.now);
   if (result.state !== 'booked') {
+    if (result.state === 'rejected' && result.field === 'consent') ctx.turn.askConsent = true;
     const why = result.state === 'rejected' ? result.field : result.reason;
     return refuse(ctx, `Booking refused (${why}): ${result.message}`, result.message);
   }

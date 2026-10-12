@@ -181,3 +181,35 @@ test('the log keeps its newest lines when it is full', async () => {
   assert.match(state.events.at(-1)?.text ?? '', /^Looked up/);
   assert.equal(state.events[0]?.text, 'old 1');
 });
+
+test('the reply carries buttons: offered times after a lookup, confirm after a pick, none after the booking', async () => {
+  const fake = deps(new FakeModel());
+  const state = emptySession();
+
+  const t1 = await runTurn(chatBody('Can I book a service?'), state, NOW, fake);
+  assert.equal(t1.chips[0]?.kind, 'time');
+  assert.match(t1.chips[0]?.message ?? '', /^I choose the time: .+ \(2026-10-\d{2}T\d{2}:\d{2}:00\+03:00\)$/);
+  assert.equal(t1.chips.at(-1)?.kind, 'more');
+
+  const t2 = await runTurn(chatBody(t1.chips[0]!.message), state, NOW, fake);
+  assert.match(t2.reply, /Shall I book it\?$/);
+  assert.deepEqual(t2.chips.map((c) => c.kind), ['confirm', 'change']);
+
+  const t3 = await runTurn(chatBody(t2.chips[0]!.message), state, NOW, fake);
+  assert.match(t3.reply, /^Booking confirmed/);
+  assert.equal(state.bookings[0]?.start, t1.chips[0]!.message.match(/\((.+)\)$/)?.[1]);
+  assert.deepEqual(t3.chips, []);
+});
+
+test('a booking attempt without consent makes the reply carry the confirm button', async () => {
+  let calls = 0;
+  const client: ModelClient = {
+    async create() {
+      calls++;
+      if (calls === 1) return fakeToolUse('create_booking', bookingInput({ start: firstStart('service', 120), consent: false }), 'toolu_1');
+      return fakeText('Here is the summary. Is it right?');
+    },
+  };
+  const t = await runTurn(chatBody('book it', { lang: 'fi' }), emptySession(), NOW, deps(client));
+  assert.deepEqual(t.chips.map((c) => c.label), ['Kyllä, varaa', 'Muuta jotain']);
+});

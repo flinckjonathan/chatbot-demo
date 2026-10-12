@@ -12,6 +12,8 @@ Live demo: https://chatbot-demo-9vq.pages.dev (staff view: https://chatbot-demo-
 
 ## Try it
 
+Six messages per visitor per day, so pick what you want to see; locally with your own key the cap is yours to set.
+
 - "What does an EV battery health report cost?" (a published price it may quote)
 - "My hybrid shows a battery warning light. Can I get it checked next week?" (safety rule, then a booking with the HV technician)
 - "Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123." (answers in Finnish, books with the service technician)
@@ -27,6 +29,7 @@ Live demo: https://chatbot-demo-9vq.pages.dev (staff view: https://chatbot-demo-
 |---|---|
 | Floating chat widget on the website, fi/sv/en | Same widget on a placeholder site |
 | Claude with three tools: free times, calendar booking, contact request | Same three tools, same consent gate, one booking per conversation |
+| Offered times and quick answers as buttons under the reply, taken from the tool results | Same rules, same buttons; on a phone the chat is a sheet from the bottom |
 | Pictures in the chat, shrunk in the browser, typed by their bytes on the server | Same (two pictures, 3 MB, JPEG/PNG/WebP/GIF) |
 | Thumbs vote under every reply, written to the anonymised log | Same vote, shown in the staff log |
 | Staff additions by email, approved by a person, appended after the cache point | Same queue on the staff page, same prompt placement, "newer wins" rule |
@@ -77,7 +80,7 @@ staff page (public/staff.html)
 - Tool loop capped at three rounds; when the model still wants a tool after that, it is asked to close the turn in words. Message cut to 1500 characters, transcript to 12 turns.
 - The transcript lives on the server. The browser sends only the new message and pictures, so a visitor cannot forge earlier assistant turns to steer the model.
 - Pictures are typed by their first bytes, never by the client's claim; they are sent to the model and never stored. A thumbs vote is accepted only for a message id this session actually received.
-- Rate limits: 12 messages per visitor per 10 minutes, 400 per day for the whole demo, 20 votes and 40 queue changes per visitor per 10 minutes. Visitors are counted by a salted hash of the IP, and a request the visitor limit rejects does not eat the daily budget. Bodies over the two-picture size are rejected on the header alone.
+- Rate limits: six messages per visitor per day and fifty per day for the whole demo, so the public page costs cents at most (both numbers are the environment variables `RATE_PER_VISITOR` and `RATE_PER_DAY`); 20 votes and 40 queue changes per visitor per 10 minutes. Visitors are counted by a salted hash of the IP, and a request the visitor limit rejects does not eat the daily budget. Bodies over the two-picture size are rejected on the header alone.
 - Every customer-facing sentence, including the HTTP error texts, lives in `src/agent/texts.ts` in three languages; the browser only places what the server sends.
 
 ## Model settings
