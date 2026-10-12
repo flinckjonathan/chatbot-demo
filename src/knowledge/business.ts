@@ -27,7 +27,7 @@ export const KNOWLEDGE = `=== KNOWLEDGE BASE ===
 This is a demonstration. The workshop, its prices and its team are placeholders; treat them as the facts of the business you work for.
 
 BASICS
-- An independent car repair shop that services all makes, including electric and hybrid cars.
+- An independent car service company that works on all makes, including electric and hybrid cars.
 - Phone ${BUSINESS.phone}. Opening hours ${BUSINESS.hours.en}. Closed on weekends.
 - The address and email are not published in this demo: for anything that needs them, give the phone number.
 - Three mechanics on the floor. The service desk answers the phone during opening hours.

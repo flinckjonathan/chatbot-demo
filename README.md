@@ -1,8 +1,8 @@
 # Chatbot Demo
 
-A customer advisor for a car repair shop that books real times. It answers from a knowledge base, reads pictures of warning lights, looks up free times, books, takes thumbs votes, and lets the staff feed it new facts through an approval queue. The customer's chat sits beside the shop's week board, and the staff view adds the agent's log, the queue and the exact prompt the bot sees.
+A customer advisor for a car service company that books real times. It answers from a knowledge base, reads pictures of warning lights, looks up free times, books, takes thumbs votes, and lets the staff feed it new facts through an approval queue. The customer's chat sits beside the shop's week board, and the staff view adds the agent's log, the queue and the exact prompt the bot sees.
 
-The shop is a placeholder: no name, no address, no people, round-number prices. The agent design is the one I run in production at a repair shop, rebuilt from scratch in TypeScript for this demo so that nothing from the real business is in it.
+The shop is a placeholder: no name, no address, no people, round-number prices. The agent design is the one I run in production at a car service company, rebuilt from scratch in TypeScript for this demo so that nothing from the real business is in it.
 
 Live demo: https://chatbot-demo-9vq.pages.dev (staff view: https://chatbot-demo-9vq.pages.dev/staff.html)
 

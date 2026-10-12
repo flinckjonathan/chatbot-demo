@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Customer advisor agent for a fictional car repair shop: Claude tool use, mock calendar, guardrails.",
+  "description": "Customer advisor agent for a fictional car service company: Claude tool use, mock calendar, guardrails.",
   "scripts": {
     "dev": "wrangler pages dev public --port 8788",
     "test": "node --test \"tests/**/*.test.ts\"",

@@ -1,7 +1,7 @@
 # DESIGN.md
 
 ## Brief
-Subject: a customer advisor agent for a placeholder car repair shop that books real times in a simulated calendar, with the staff side on its own page.
+Subject: a customer advisor agent for a placeholder car service company that books real times in a simulated calendar, with the staff side on its own page.
 Audience: a hackathon reviewer or developer who opens the link, types one question or sends a picture, and wants to see what the agent actually did.
 Page's single job: have a conversation in the chat that ends in a booking, and see the booking land on the board beside it.
 Differentiator: the customer's chat and the shop's week board side by side, nothing hidden.
