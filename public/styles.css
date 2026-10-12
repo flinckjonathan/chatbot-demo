@@ -448,19 +448,6 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
-.starter-picture {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.starter-picture img {
-  width: 40px;
-  height: 30px;
-  object-fit: cover;
-  border-radius: 2px;
-}
-
 .photos {
   display: flex;
   gap: 8px;

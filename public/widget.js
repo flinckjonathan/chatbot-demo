@@ -18,6 +18,28 @@ const GREETING = {
   sv: 'Hej! Jag är verkstadens kundrådgivare. Fråga om våra tjänster, beskriv ett problem med bilen, skicka en bild på en varningslampa eller boka en tid hos en tekniker.',
 };
 
+/** Things to try, in the reply language. The last one sends the sample warning-light picture. */
+const STARTERS = {
+  en: [
+    { text: 'What does an EV battery health report cost?' },
+    { text: 'My hybrid shows a battery warning light. Can I get it checked next week?' },
+    { text: 'Can I book a service for next week? The car is a Skoda Octavia, ABC-123.' },
+    { text: 'This came on in my dashboard this morning. What does it mean?', sample: 'sample-warning.png', label: 'Send a sample warning-light picture' },
+  ],
+  fi: [
+    { text: 'Paljonko sähköauton akun kuntoraportti maksaa?' },
+    { text: 'Hybridissäni palaa akun varoitusvalo. Pääsenkö tarkastukseen ensi viikolla?' },
+    { text: 'Voinko varata huoltoajan ensi viikolle? Auto on Skoda Octavia ABC-123.' },
+    { text: 'Tämä syttyi kojelautaan tänä aamuna. Mitä se tarkoittaa?', sample: 'sample-warning.png', label: 'Lähetä esimerkkikuva varoitusvalosta' },
+  ],
+  sv: [
+    { text: 'Vad kostar en hälsorapport för elbilens batteri?' },
+    { text: 'Min hybrid visar en batterivarningslampa. Kan jag få den kontrollerad nästa vecka?' },
+    { text: 'Kan jag boka en service nästa vecka? Bilen är en Skoda Octavia, ABC-123.' },
+    { text: 'Den här tändes på instrumentpanelen i morse. Vad betyder den?', sample: 'sample-warning.png', label: 'Skicka en exempelbild på en varningslampa' },
+  ],
+};
+
 const STATUS = {
   en: {
     typing: 'Writing',
@@ -101,6 +123,7 @@ function openPanel() {
     started = true;
     addLine('msg assistant', GREETING[lang()] || GREETING.en);
     // The things to try sit under the greeting until the first message.
+    renderStarters();
     els.messages.appendChild(els.starters);
   }
   if (!DOCKED.matches) els.input.focus({ preventScroll: true });
@@ -184,6 +207,20 @@ function typingStatus(text) {
   if (awaitingConfirm && /^(kyllä|joo|ja\b|yes|ok)/.test(s)) return t('book');
   if (/aik(a|oja|aa)|vapaa|milloin|pääs|varaa|boka|tid|book|time|slot|next week|ensi viikko/.test(s)) return t('times');
   return t('typing');
+}
+
+/* ---- things to try, in the reply language; gone after the first message ---- */
+
+function renderStarters() {
+  if (!els.starters.isConnected && started) return;
+  els.starters.replaceChildren();
+  for (const starter of STARTERS[lang()] || STARTERS.en) {
+    const button = el('button', 'chip', starter.label || starter.text);
+    button.type = 'button';
+    button.dataset.text = starter.text;
+    if (starter.sample) button.dataset.sample = starter.sample;
+    els.starters.appendChild(button);
+  }
 }
 
 /* ---- buttons under a reply: the offered times and the quick answers ---- */
@@ -376,6 +413,7 @@ function init() {
   els.lang.value = getLang();
   els.lang.addEventListener('change', () => {
     setLang(els.lang.value);
+    renderStarters();
     loadBoard();
   });
   for (const link of els.staffLinks) {
